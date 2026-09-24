@@ -37,7 +37,7 @@ Todos los botones están en la pestaña **Kaiken** de la cinta.
 
 | Botón | Qué hace |
 |---|---|
-| **Pontifex MEP** | Reenruta una tubería, ducto, escalerilla o conduit para esquivar cruces, con codos al ángulo y distancia elegidos. |
+| **Pontifex** | Reenruta una tubería, ducto, escalerilla o conduit para esquivar cruces, con codos al ángulo y distancia elegidos. |
 | **Rou-T** | Corrige una Te de ramal que cruza otras tuberías: la gira hacia arriba (o abajo) y reconecta el ramal. |
 | **Rou-C** | Cambia la altura de una conexión de codo de 90° insertando dos codos. |
 | **Ceiling-Alt** | Corta una tubería antes de un muro y la sube a la altura configurada con dos codos de 90°. |

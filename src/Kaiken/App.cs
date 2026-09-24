@@ -211,7 +211,7 @@ public class App : IExternalApplication
 
         var pontifexButton = new PushButtonData(
             "PontifexCommand",
-            "Pontifex\nMEP",
+            "Pontifex",
             assemblyPath,
             "Kaiken.PontifexCommand"
         )
