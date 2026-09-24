@@ -56,7 +56,7 @@ public class CeilingAltCommand : IExternalCommand
         var validPipes = new List<MEPCurve>();
         foreach (var pipe in selPipes)
         {
-            if (AvoiderHelpers.Axis(pipe) != null)
+            if (PontifexHelpers.Axis(pipe) != null)
             {
                 validPipes.Add(pipe);
             }
@@ -77,7 +77,7 @@ public class CeilingAltCommand : IExternalCommand
             double maxX = double.MinValue, maxY = double.MinValue, maxZ = double.MinValue;
             foreach (var pipe in validPipes)
             {
-                Line? ax = AvoiderHelpers.Axis(pipe);
+                Line? ax = PontifexHelpers.Axis(pipe);
                 if (ax == null) continue;
                 XYZ p0 = ax.GetEndPoint(0);
                 XYZ p1 = ax.GetEndPoint(1);
@@ -170,7 +170,7 @@ public class CeilingAltCommand : IExternalCommand
         if (win.ShowDialog() != true) return Result.Cancelled;
         var config = win.Result;
 
-        double offsetFt = config.OffsetCm * AvoiderHelpers.CmToFeet;
+        double offsetFt = config.OffsetCm * PontifexHelpers.CmToFeet;
 
         // 3. Ejecutar todo en una única transacción (Ctrl+Z deshace todo junto)
         using var tx = new Transaction(doc, $"Crear Ceiling-Alt en {validPipes.Count} tubería(s)");
@@ -184,7 +184,7 @@ public class CeilingAltCommand : IExternalCommand
             {
                 try
                 {
-                    Line axis = AvoiderHelpers.Axis(pipe)!;
+                    Line axis = PontifexHelpers.Axis(pipe)!;
                     XYZ S = axis.GetEndPoint(0);
                     XYZ E = axis.GetEndPoint(1);
                     XYZ d = (E - S).Normalize();
@@ -205,8 +205,8 @@ public class CeilingAltCommand : IExternalCommand
                     bool sIsPasillo = false;
                     bool eIsPasillo = false;
 
-                    Connector? connS = AvoiderHelpers.ConnectorAt(pipe, S);
-                    Connector? connE = AvoiderHelpers.ConnectorAt(pipe, E);
+                    Connector? connS = PontifexHelpers.ConnectorAt(pipe, S);
+                    Connector? connE = PontifexHelpers.ConnectorAt(pipe, E);
 
                     bool IsPasilloConnection(Connector? conn)
                     {
@@ -244,7 +244,7 @@ public class CeilingAltCommand : IExternalCommand
                                             {
                                                 if (cRefFit.Owner is MEPCurve otherCurve && otherCurve.Id != pipe.Id)
                                                 {
-                                                    Line? otherAxis = AvoiderHelpers.Axis(otherCurve);
+                                                    Line? otherAxis = PontifexHelpers.Axis(otherCurve);
                                                     if (otherAxis != null)
                                                     {
                                                         XYZ otherDir = (otherAxis.GetEndPoint(1) - otherAxis.GetEndPoint(0)).Normalize();
@@ -337,10 +337,10 @@ public class CeilingAltCommand : IExternalCommand
                     var verticalPipe = ops.Create(doc, pipeToKeep, cutPoint, raisedCutPoint);
                     doc.Regenerate();
 
-                    Connector? connLow = AvoiderHelpers.ConnectorAt(pipeToKeep, cutPoint);
-                    Connector? connVertBottom = AvoiderHelpers.ConnectorAt(verticalPipe, cutPoint);
-                    Connector? connVertTop = AvoiderHelpers.ConnectorAt(verticalPipe, raisedCutPoint);
-                    Connector? connHigh = AvoiderHelpers.ConnectorAt(pipeToMove, raisedCutPoint);
+                    Connector? connLow = PontifexHelpers.ConnectorAt(pipeToKeep, cutPoint);
+                    Connector? connVertBottom = PontifexHelpers.ConnectorAt(verticalPipe, cutPoint);
+                    Connector? connVertTop = PontifexHelpers.ConnectorAt(verticalPipe, raisedCutPoint);
+                    Connector? connHigh = PontifexHelpers.ConnectorAt(pipeToMove, raisedCutPoint);
 
                     if (connLow == null || connVertBottom == null || connVertTop == null || connHigh == null)
                     {
@@ -395,7 +395,7 @@ public class CeilingAltCommand : IExternalCommand
 
     private WallClashInfo? FindWallIntersections(Document doc, MEPCurve mep, View view)
     {
-        Line? axis = AvoiderHelpers.Axis(mep);
+        Line? axis = PontifexHelpers.Axis(mep);
         if (axis == null) return null;
 
         XYZ S = axis.GetEndPoint(0);
@@ -403,7 +403,7 @@ public class CeilingAltCommand : IExternalCommand
         double L = S.DistanceTo(E);
         XYZ d = (E - S).Normalize();
 
-        var connected = AvoiderHelpers.ConnectedElementIds(mep);
+        var connected = PontifexHelpers.ConnectedElementIds(mep);
 
         // 1. Muros del host
         var hostWalls = new FilteredElementCollector(doc, view.Id)

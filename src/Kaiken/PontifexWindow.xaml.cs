@@ -4,11 +4,11 @@ using System.Windows.Controls;
 
 namespace Kaiken;
 
-public partial class AvoiderWindow : Window
+public partial class PontifexWindow : Window
 {
-    public AvoiderParams Result { get; private set; } = new();
+    public PontifexParams Result { get; private set; } = new();
 
-    public AvoiderWindow(double sugStartAngle = 45.0, double sugEndAngle = 45.0)
+    public PontifexWindow(double sugStartAngle = 45.0, double sugEndAngle = 45.0)
     {
         InitializeComponent();
         SetAngleSelection(StartAngleBox, sugStartAngle);
@@ -40,7 +40,7 @@ public partial class AvoiderWindow : Window
             endAngle = ea;
 
         var dir = (DirectionBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Abajo";
-        Result = new AvoiderParams
+        Result = new PontifexParams
         {
             DistanceFt = 0,
             AngleDegStart = startAngle,

@@ -466,7 +466,7 @@ server.tool(
 
 server.tool(
   "revit_suggest_tee_rise",
-  "Antes de correr revit_fix_branch_tee_up: mide (con piezas de prueba descartables, igual que el Avoider) el espacio físico real que ocupan la Te nueva, la Transición (si aplica) y el codo final para el tamaño de tubería de esta Te, y sugiere el riseCm mínimo para que no queden solapados o casi sin espacio.",
+  "Antes de correr revit_fix_branch_tee_up: mide (con piezas de prueba descartables, igual que el Pontifex) el espacio físico real que ocupan la Te nueva, la Transición (si aplica) y el codo final para el tamaño de tubería de esta Te, y sugiere el riseCm mínimo para que no queden solapados o casi sin espacio.",
   {
     teeElementId: z.number().describe("Element Id de la Te (fitting) a corregir"),
     marginCm: z.number().optional().describe("Margen de seguridad extra en cm además del mínimo geométrico (default 1)"),

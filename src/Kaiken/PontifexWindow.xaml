@@ -1,7 +1,7 @@
-<Window x:Class="Kaiken.AvoiderWindow"
+<Window x:Class="Kaiken.PontifexWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Avoider — reenrutar" Height="290" Width="300"
+        Title="Pontifex — reenrutar" Height="290" Width="300"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
     <StackPanel Margin="16">
         <TextBlock Text="Hacia dónde" FontWeight="Bold" Margin="0,0,0,4"/>

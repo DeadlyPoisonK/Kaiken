@@ -206,20 +206,20 @@ public class App : IExternalApplication
         };
         enchufesPanel.AddItem(alignToCeilingButton);
 
-        // --- Panel MEP: Avoider ---
+        // --- Panel MEP: Pontifex ---
         RibbonPanel mepPanel = application.CreateRibbonPanel(tabName, "MEP");
 
-        var avoiderButton = new PushButtonData(
-            "AvoiderPipeCommand",
-            "Avoider\nMEP",
+        var pontifexButton = new PushButtonData(
+            "PontifexCommand",
+            "Pontifex",
             assemblyPath,
-            "Kaiken.AvoiderPipeCommand"
+            "Kaiken.PontifexCommand"
         )
         {
-            LargeImage = LoadIcon("avoider_32.png"),
+            LargeImage = LoadIcon("pontifex_32.png"),
             ToolTip = "Reenruta el elemento MEP seleccionado (tubería, ducto, escalerilla o conduit) evitando cruces con MEP y estructura: crea saltos con codos al ángulo, distancia y dirección que elijas.",
         };
-        mepPanel.AddItem(avoiderButton);
+        mepPanel.AddItem(pontifexButton);
 
         var fixTeeButton = new PushButtonData(
             "FixBranchTeeCommand",

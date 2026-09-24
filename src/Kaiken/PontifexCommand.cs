@@ -12,12 +12,12 @@ using Autodesk.Revit.UI.Selection;
 namespace Kaiken;
 
 /// <summary>
-/// Avoider: reenruta un elemento MEP seleccionado (tubería, ducto, escalerilla o
+/// Pontifex: reenruta un elemento MEP seleccionado (tubería, ducto, escalerilla o
 /// conduit) creando saltos con codos al ángulo/dirección/distancia elegidos, en cada
 /// cruce con obstáculos (MEP + estructura) de la vista. Una transacción, Ctrl+Z.
 /// </summary>
 [Transaction(TransactionMode.Manual)]
-public class AvoiderPipeCommand : IExternalCommand
+public class PontifexCommand : IExternalCommand
 {
     private class MepFilter : ISelectionFilter
     {
@@ -50,9 +50,9 @@ public class AvoiderPipeCommand : IExternalCommand
         try
         {
         MepOps? ops = MepOps.For(mep);
-        Line? axis = AvoiderHelpers.Axis(mep);
-        if (ops == null) { TaskDialog.Show("Avoider", "Tipo de elemento no soportado."); return Result.Cancelled; }
-        if (axis == null) { TaskDialog.Show("Avoider", "El elemento no es recto (su eje no es una línea)."); return Result.Cancelled; }
+        Line? axis = PontifexHelpers.Axis(mep);
+        if (ops == null) { TaskDialog.Show("Pontifex", "Tipo de elemento no soportado."); return Result.Cancelled; }
+        if (axis == null) { TaskDialog.Show("Pontifex", "El elemento no es recto (su eje no es una línea)."); return Result.Cancelled; }
 
         XYZ S = axis.GetEndPoint(0), E = axis.GetEndPoint(1);
         XYZ d = (E - S).Normalize();
@@ -60,8 +60,8 @@ public class AvoiderPipeCommand : IExternalCommand
         double size = ops.NominalSize(mep);
 
         // 2. Pre-analizar cruces para sugerir ángulos
-        AvoiderParams dummyParams = new AvoiderParams { ClearanceFt = 0 };
-        var preClashes = AvoiderHelpers.FindClashes(doc, mep, doc.ActiveView, dummyParams);
+        PontifexParams dummyParams = new PontifexParams { ClearanceFt = 0 };
+        var preClashes = PontifexHelpers.FindClashes(doc, mep, doc.ActiveView, dummyParams);
         
         double sugStartAngle = 45.0;
         double sugEndAngle = 45.0;
@@ -77,30 +77,41 @@ public class AvoiderPipeCommand : IExternalCommand
         }
 
         // 3. UI y Parámetros
-        var win = new AvoiderWindow(sugStartAngle, sugEndAngle);
+        var win = new PontifexWindow(sugStartAngle, sugEndAngle);
         if (win.ShowDialog() != true) return Result.Cancelled;
         var p = win.Result;
 
-        XYZ offDir = AvoiderHelpers.OffsetDir(d, p.Direction);
+        XYZ offDir = PontifexHelpers.OffsetDir(d, p.Direction);
         if (offDir.GetLength() < 0.5)
         {
-            TaskDialog.Show("Avoider",
+            TaskDialog.Show("Pontifex",
                 "La dirección elegida es paralela al eje del elemento (¿elemento vertical con 'Arriba/Abajo'?).\n" +
                 "Para un elemento vertical usa Izquierda/Derecha.");
             return Result.Cancelled;
         }
 
-        // Para distancias base mínimas, usamos el codo con ángulo más suave (menor ángulo = mayor codo)
+        // Center-to-end real del codo de cada lado del salto: el codo en Pa usa el ángulo
+        // de inicio y el codo en Pb el de fin.
         double minAngle = Math.Min(p.AngleDegStart, p.AngleDegEnd);
-        double D = MeasureElbowCtE(doc, mep, ops, d, minAngle, size);
-        var (minDist, minMargin) = AvoiderHelpers.MinBridge(D, minAngle);
-        
+        double dStart = MeasureElbowCtE(doc, mep, ops, d, p.AngleDegStart, size);
+        double dEnd = Math.Abs(p.AngleDegEnd - p.AngleDegStart) < 1e-6 ? dStart
+                    : MeasureElbowCtE(doc, mep, ops, d, p.AngleDegEnd, size);
+        double D = p.AngleDegStart <= p.AngleDegEnd ? dStart : dEnd;
+        var (minDist, minMargin) = PontifexHelpers.MinBridge(D, minAngle);
+
         string adj = "";
         double effDistBase = Math.Max(p.DistanceFt, minDist);
         double margin = Math.Max(p.ClearanceFt, minMargin);
-        
-        double minGuardLeft = Math.Max(MeasureElbowCtE(doc, mep, ops, d, p.AngleDegStart, size) + 1.0 * AvoiderHelpers.CmToFeet, 3.0 * AvoiderHelpers.CmToFeet);
-        double minGuardRight = Math.Max(MeasureElbowCtE(doc, mep, ops, d, p.AngleDegEnd, size) + 1.0 * AvoiderHelpers.CmToFeet, 3.0 * AvoiderHelpers.CmToFeet);
+
+        // Recta mínima que debe quedar en cada tramo que se conserva:
+        //  - entre el inicio del elemento y el primer codo (Pa): D_inicio + 1 cm
+        //  - entre el último codo (Pb) y el final del elemento:  D_fin + 1 cm
+        //  - entre dos saltos consecutivos (Pb de uno, Pa del otro): D_fin + D_inicio + 1 cm,
+        //    porque ese tramo lleva un codo en CADA extremo.
+        double straight = 1.0 * PontifexHelpers.CmToFeet;
+        double edgeGuardStart = Math.Max(dStart + straight, 3.0 * PontifexHelpers.CmToFeet);
+        double edgeGuardEnd = Math.Max(dEnd + straight, 3.0 * PontifexHelpers.CmToFeet);
+        double gapGuard = dStart + dEnd + straight;
 
         // 4. Detección de Te conectada al ramal (Caso B) antes de modificar el modelo
         Connector? startTrunkA = null, startTrunkB = null;
@@ -111,51 +122,47 @@ public class AvoiderPipeCommand : IExternalCommand
         FamilyInstance? teeEnd = GetConnectedTee(mep, E, p.RotateTee, out intermediateEnd, out endTrunkA, out endTrunkB);
 
         // 5. Cruces finales con el margen real
-        var clashes = AvoiderHelpers.FindClashes(doc, mep, doc.ActiveView, p);
-        if (clashes.Count == 0) { TaskDialog.Show("Avoider", "No se detectaron cruces con obstáculos en esta vista."); return Result.Succeeded; }
+        var clashes = PontifexHelpers.FindClashes(doc, mep, doc.ActiveView, p);
+        if (clashes.Count == 0) { TaskDialog.Show("Pontifex", "No se detectaron cruces con obstáculos en esta vista."); return Result.Succeeded; }
 
         int clashesBeforeMerge = clashes.Count;
-        clashes = MergeOverlappingJumps(clashes, axis, offDir, size, margin, effDistBase, minAngle);
+        clashes = MergeOverlappingJumps(clashes, axis, offDir, size, margin, effDistBase,
+                                        p.AngleDegStart, p.AngleDegEnd, gapGuard);
         if (clashes.Count < clashesBeforeMerge)
             adj += $"\n{clashesBeforeMerge - clashes.Count} cruce(s) próximos fusionados en un salto único.";
 
         int done = 0, skipped = 0, elbowFails = 0;
         var log = new List<string>();
+        var ordered = clashes.OrderBy(c => c.A).ToList();
+        ClashInterval firstClash = ordered[0], lastClash = ordered[^1];
 
-        using (var tx = new Transaction(doc, "Avoider — reenrutar MEP"))
+        using (var tx = new Transaction(doc, "Pontifex — salto MEP"))
         {
             tx.Start();
-            MEPCurve current = mep;
+            // Se procesa de derecha a izquierda: tras cada salto, "current" es el tramo
+            // S..Pa que queda a la izquierda y lastA es donde empieza ese salto.
+            ElementId currentId = mep.Id;
             double lastA = L;
-            foreach (var iv in clashes.OrderByDescending(c => c.A))
+            bool jumpToRight = false;
+            for (int k = ordered.Count - 1; k >= 0; k--)
             {
+                var iv = ordered[k];
                 double bT = iv.A - margin - size / 2.0;
                 double cT = iv.B + margin + size / 2.0;
 
-                XYZ clashCenter = axis.Evaluate(iv.Mid / L, true);
-                double obsExtreme = (offDir.X >= 0 ? iv.WorldBbMax.X : iv.WorldBbMin.X) * offDir.X
-                                  + (offDir.Y >= 0 ? iv.WorldBbMax.Y : iv.WorldBbMin.Y) * offDir.Y
-                                  + (offDir.Z >= 0 ? iv.WorldBbMax.Z : iv.WorldBbMin.Z) * offDir.Z;
-                double pipeProj   = clashCenter.DotProduct(offDir);
-
-                double requiredOffset = Math.Max(obsExtreme - pipeProj + margin + size / 2.0, 0);
-                double effDist = Math.Max(effDistBase, requiredOffset);
-                if (requiredOffset > effDistBase + 1e-4)
-                    log.Add($"Cruce t={iv.Mid:F2}: offset geométrico necesario {requiredOffset * 30.48:F1} cm.");
+                double effDist = CalcEffDist(iv, axis, L, offDir, size, margin, effDistBase);
+                if (effDist > effDistBase + 1e-4)
+                    log.Add($"Cruce t={iv.Mid:F2}: offset geométrico necesario {effDist * 30.48:F1} cm.");
 
                 XYZ off = offDir * effDist;
-                
-                // Calculamos runs separados
-                double reqRunLeft = effDist / Math.Tan(p.AngleDegStart * Math.PI / 180.0);
-                double reqRunRight = effDist / Math.Tan(p.AngleDegEnd * Math.PI / 180.0);
+
+                double reqRunLeft = Run(effDist, p.AngleDegStart);
+                double reqRunRight = Run(effDist, p.AngleDegEnd);
                 double clashRunLeft = reqRunLeft;
                 double clashRunRight = reqRunRight;
 
-                double clashMinGuardLeft = (iv == clashes.OrderBy(c => c.A).First()) ? 0.0 : minGuardLeft;
-                double clashMinGuardRight = minGuardRight;
-
-                double availLeft = bT - clashMinGuardLeft;
-                double availRight = lastA - cT - clashMinGuardRight;
+                double availLeft = bT - edgeGuardStart;
+                double availRight = lastA - cT - (jumpToRight ? gapGuard : edgeGuardEnd);
 
                 bool teeEvasionLeft = false;
                 bool teeEvasionRight = false;
@@ -163,80 +170,68 @@ public class AvoiderPipeCommand : IExternalCommand
                 // Lado izquierdo
                 if (clashRunLeft > availLeft)
                 {
-                    if (iv == clashes.OrderBy(c => c.A).First() && teeStart != null && availLeft < minGuardLeft)
+                    if (iv == firstClash && teeStart != null && bT < edgeGuardStart)
                     {
                         teeEvasionLeft = true;
                         clashRunLeft = 0;
                     }
-                    else
+                    else if (availLeft < 0.01)
                     {
-                        clashRunLeft = Math.Max(0.01, availLeft);
+                        skipped++;
+                        log.Add($"Cruce t={iv.Mid:F2}: no hay espacio antes del cruce para colocar el codo.");
+                        continue;
                     }
+                    else clashRunLeft = availLeft;
                 }
 
                 // Lado derecho
                 if (clashRunRight > availRight)
                 {
-                    if (iv == clashes.OrderByDescending(c => c.A).First() && teeEnd != null && availRight < minGuardRight)
+                    if (iv == lastClash && !jumpToRight && teeEnd != null && availRight < edgeGuardEnd)
                     {
                         teeEvasionRight = true;
                         clashRunRight = 0;
                     }
-                    else
+                    else if (availRight < 0.01)
                     {
-                        clashRunRight = Math.Max(0.01, availRight);
+                        skipped++;
+                        log.Add($"Cruce t={iv.Mid:F2}: no hay espacio después del cruce para colocar el codo.");
+                        continue;
                     }
+                    else clashRunRight = availRight;
                 }
 
                 if (teeEvasionLeft && teeStart?.Location is LocationPoint lpStart)
-                {
                     bT = (lpStart.Point - S).DotProduct(d);
-                }
                 if (teeEvasionRight && teeEnd?.Location is LocationPoint lpEnd)
-                {
                     cT = (lpEnd.Point - S).DotProduct(d);
-                }
 
                 double paT = bT - clashRunLeft;
                 double pbT = cT + clashRunRight;
-                
-                if (!teeEvasionLeft && paT < -1e-5)
-                {
-                    skipped++;
-                    log.Add($"Cruce t={iv.Mid:F2}: No hay espacio al inicio de la tubería para colocar el codo.");
-                    continue;
-                }
-                if (!teeEvasionRight && pbT > L + 1e-5)
-                {
-                    skipped++;
-                    log.Add($"Cruce t={iv.Mid:F2}: No hay espacio al final de la tubería para colocar el codo.");
-                    continue;
-                }
 
                 // Validaciones de ángulo
-                if (!teeEvasionLeft && clashRunLeft < reqRunLeft)
+                if (!teeEvasionLeft && clashRunLeft < reqRunLeft && Math.Atan2(effDist, clashRunLeft) * 180.0 / Math.PI > 89.0)
                 {
-                    double adaptAngleLeft = Math.Atan2(effDist, clashRunLeft) * 180.0 / Math.PI;
-                    if (adaptAngleLeft > 89.0)
-                    {
-                        skipped++;
-                        log.Add($"Cruce t={iv.Mid:F2}: izquierda sin espacio (ángulo > 89°).");
-                        continue;
-                    }
+                    skipped++;
+                    log.Add($"Cruce t={iv.Mid:F2}: izquierda sin espacio (ángulo > 89°).");
+                    continue;
                 }
-                if (!teeEvasionRight && clashRunRight < reqRunRight)
+                if (!teeEvasionRight && clashRunRight < reqRunRight && Math.Atan2(effDist, clashRunRight) * 180.0 / Math.PI > 89.0)
                 {
-                    double adaptAngleRight = Math.Atan2(effDist, clashRunRight) * 180.0 / Math.PI;
-                    if (adaptAngleRight > 89.0)
-                    {
-                        skipped++;
-                        log.Add($"Cruce t={iv.Mid:F2}: derecha sin espacio (ángulo > 89°).");
-                        continue;
-                    }
+                    skipped++;
+                    log.Add($"Cruce t={iv.Mid:F2}: derecha sin espacio (ángulo > 89°).");
+                    continue;
                 }
 
+                // Cada salto en su propia sub-transacción: si uno falla a medias se deshace
+                // entero y no deja el elemento cortado ni rompe los saltos siguientes.
+                using var st = new SubTransaction(doc);
                 try
                 {
+                    st.Start();
+                    var current = (MEPCurve)doc.GetElement(currentId);
+                    int ef = 0;
+
                     XYZ Pa = S + paT * d;
                     XYZ Pb = S + pbT * d;
                     XYZ B = S + bT * d + off;
@@ -247,54 +242,55 @@ public class AvoiderPipeCommand : IExternalCommand
                         // Evasión de Te a la derecha: rest va hasta la Te, la borramos
                         var (s1, rest) = ops.Break(doc, current, Pa, d);
                         doc.Delete(rest.Id);
-                        doc.Delete(teeEnd.Id);
+                        doc.Delete(teeEnd!.Id);
                         foreach (var fid in intermediateEnd) doc.Delete(fid);
                         doc.Regenerate();
 
                         var seg1 = ops.Create(doc, s1, Pa, B);
                         var seg2 = ops.Create(doc, s1, B, C);
                         var seg3 = ops.Create(doc, s1, C, Pb); // vertical a la Te
+                        doc.Regenerate();
 
-                        elbowFails += Elbow(doc, s1, Pa, seg1, Pa);
-                        elbowFails += Elbow(doc, seg1, B, seg2, B);
-                        elbowFails += Elbow(doc, seg2, C, seg3, C); // codo de 90° automático
+                        ef += Elbow(doc, s1, Pa, seg1, Pa);
+                        ef += Elbow(doc, seg1, B, seg2, B);
+                        ef += Elbow(doc, seg2, C, seg3, C); // codo de 90° automático
 
-                        var branchConn = AvoiderHelpers.ConnectorAt(seg3, Pb);
+                        var branchConn = PontifexHelpers.ConnectorAt(seg3, Pb);
                         if (branchConn != null && endTrunkA != null && endTrunkB != null)
                         {
                             var newTee = doc.Create.NewTeeFitting(endTrunkA, endTrunkB, branchConn);
-                            if (newTee == null) elbowFails++;
+                            if (newTee == null) ef++;
                         }
-                        else { elbowFails++; }
+                        else { ef++; }
 
-                        current = s1;
-                        lastA = paT;
+                        currentId = s1.Id;
                         log.Add($"Cruce t={iv.Mid:F2}: Te ramal derecha rotada.");
                     }
                     else if (teeEvasionLeft)
                     {
-                        // Evasión de Te a la izquierda
+                        // Evasión de Te a la izquierda (siempre es el último salto que se procesa)
                         var (rest, s2) = ops.Break(doc, current, Pb, d);
                         doc.Delete(rest.Id);
-                        doc.Delete(teeStart.Id);
+                        doc.Delete(teeStart!.Id);
                         foreach (var fid in intermediateStart) doc.Delete(fid);
                         doc.Regenerate();
 
                         var seg1 = ops.Create(doc, s2, Pa, B); // vertical a la Te
                         var seg2 = ops.Create(doc, s2, B, C);
                         var seg3 = ops.Create(doc, s2, C, Pb);
+                        doc.Regenerate();
 
-                        var branchConn = AvoiderHelpers.ConnectorAt(seg1, Pa);
+                        var branchConn = PontifexHelpers.ConnectorAt(seg1, Pa);
                         if (branchConn != null && startTrunkA != null && startTrunkB != null)
                         {
                             var newTee = doc.Create.NewTeeFitting(startTrunkA, startTrunkB, branchConn);
-                            if (newTee == null) elbowFails++;
+                            if (newTee == null) ef++;
                         }
-                        else { elbowFails++; }
+                        else { ef++; }
 
-                        elbowFails += Elbow(doc, seg1, B, seg2, B); // codo de 90° automático
-                        elbowFails += Elbow(doc, seg2, C, seg3, C);
-                        elbowFails += Elbow(doc, seg3, Pb, s2, Pb);
+                        ef += Elbow(doc, seg1, B, seg2, B); // codo de 90° automático
+                        ef += Elbow(doc, seg2, C, seg3, C);
+                        ef += Elbow(doc, seg3, Pb, s2, Pb);
 
                         log.Add($"Cruce t={iv.Mid:F2}: Te ramal izquierda rotada.");
                     }
@@ -308,19 +304,28 @@ public class AvoiderPipeCommand : IExternalCommand
                         var seg1 = ops.Create(doc, s1, Pa, B);
                         var seg2 = ops.Create(doc, s1, B, C);
                         var seg3 = ops.Create(doc, s1, C, Pb);
+                        doc.Regenerate();
 
-                        elbowFails += Elbow(doc, s1, Pa, seg1, Pa);
-                        elbowFails += Elbow(doc, seg1, B, seg2, B);
-                        elbowFails += Elbow(doc, seg2, C, seg3, C);
-                        elbowFails += Elbow(doc, seg3, Pb, after, Pb);
+                        ef += Elbow(doc, s1, Pa, seg1, Pa);
+                        ef += Elbow(doc, seg1, B, seg2, B);
+                        ef += Elbow(doc, seg2, C, seg3, C);
+                        ef += Elbow(doc, seg3, Pb, after, Pb);
 
-                        current = s1;
-                        lastA = paT;
+                        currentId = s1.Id;
                     }
 
+                    st.Commit();
+                    elbowFails += ef;
+                    lastA = paT;
+                    jumpToRight = true;
                     done++;
                 }
-                catch (Exception ex) { skipped++; log.Add($"Cruce t={iv.Mid:F2} falló: {ex.Message}"); }
+                catch (Exception ex)
+                {
+                    if (st.HasStarted() && !st.HasEnded()) st.RollBack();
+                    skipped++;
+                    log.Add($"Cruce t={iv.Mid:F2} falló: {ex.Message}");
+                }
             }
             tx.Commit();
         }
@@ -330,12 +335,12 @@ public class AvoiderPipeCommand : IExternalCommand
         if (elbowFails > 0) msg += $"\nCodos no insertados: {elbowFails} (¿el tipo tiene codos de {p.AngleDegStart:F0}° / {p.AngleDegEnd:F0}°?)";
         if (adj.Length > 0) msg += "\n" + adj.Trim();
         if (log.Count > 0) msg += "\n\n" + string.Join("\n", log.Take(8));
-        TaskDialog.Show("Avoider", msg);
+        TaskDialog.Show("Pontifex", msg);
         return Result.Succeeded;
         }
         catch (Exception ex)
         {
-            TaskDialog.Show("Avoider", $"Falló, no se modificó el modelo (transacción revertida):\n{ex.Message}");
+            TaskDialog.Show("Pontifex", $"Falló, no se modificó el modelo (transacción revertida):\n{ex.Message}");
             return Result.Failed;
         }
     }
@@ -349,12 +354,12 @@ public class AvoiderPipeCommand : IExternalCommand
     /// </summary>
     private static double MeasureElbowCtE(Document doc, MEPCurve mep, MepOps ops, XYZ axisDir, double angleDeg, double sizeFt)
     {
-        double fallback = AvoiderHelpers.EstimateElbow(sizeFt, angleDeg);
-        XYZ perp = AvoiderHelpers.OffsetDir(axisDir, JogDir.Arriba);
-        if (perp.GetLength() < 0.5) perp = AvoiderHelpers.OffsetDir(axisDir, JogDir.Derecha);
+        double fallback = PontifexHelpers.EstimateElbow(sizeFt, angleDeg);
+        XYZ perp = PontifexHelpers.OffsetDir(axisDir, JogDir.Arriba);
+        if (perp.GetLength() < 0.5) perp = PontifexHelpers.OffsetDir(axisDir, JogDir.Derecha);
         if (perp.GetLength() < 0.5) return fallback;
 
-        Line? ax = AvoiderHelpers.Axis(mep);
+        Line? ax = PontifexHelpers.Axis(mep);
         if (ax == null) return fallback;
 
         double th = angleDeg * Math.PI / 180.0;
@@ -372,8 +377,8 @@ public class AvoiderPipeCommand : IExternalCommand
                 t.Start();
                 var s1 = ops.Create(doc, mep, P0, P1);
                 var s2 = ops.Create(doc, mep, P1, P2);
-                var c1 = AvoiderHelpers.ConnectorAt(s1, P1);
-                var c2 = AvoiderHelpers.ConnectorAt(s2, P1);
+                var c1 = PontifexHelpers.ConnectorAt(s1, P1);
+                var c2 = PontifexHelpers.ConnectorAt(s2, P1);
                 if (c1 != null && c2 != null)
                 {
                     var elbow = doc.Create.NewElbowFitting(c1, c2);
@@ -393,27 +398,34 @@ public class AvoiderPipeCommand : IExternalCommand
 
     private static int Elbow(Document doc, MEPCurve m1, XYZ p1, MEPCurve m2, XYZ p2)
     {
-        var c1 = AvoiderHelpers.ConnectorAt(m1, p1);
-        var c2 = AvoiderHelpers.ConnectorAt(m2, p2);
+        var c1 = PontifexHelpers.ConnectorAt(m1, p1);
+        var c2 = PontifexHelpers.ConnectorAt(m2, p2);
         if (c1 == null || c2 == null) return 1;
         try { doc.Create.NewElbowFitting(c1, c2); return 0; }
         catch { return 1; }
     }
 
+    /// <summary>Largo en planta de la diagonal de un salto de desvío h con codos a angleDeg.</summary>
+    private static double Run(double h, double angleDeg) =>
+        angleDeg >= 89.999 ? 0.0 : h / Math.Tan(angleDeg * Math.PI / 180.0);
+
     /// <summary>
     /// Merge geométrico: recorre la lista de cruces ordenados por A y fusiona pares
-    /// consecutivos cuya geometría de salto se solaparía (pbT del izquierdo ≥ paT del derecho).
-    /// Itera hasta estabilidad para manejar cadenas de 3+ obstáculos próximos.
+    /// consecutivos cuyos saltos se solaparían o no dejarían entre sí la recta mínima
+    /// para los dos codos (Pb del izquierdo + gapGuard ≥ Pa del derecho). Usa las mismas
+    /// fórmulas que el loop principal. Itera hasta estabilidad para cadenas de 3+ obstáculos.
     /// La BB del cruce fusionado es la unión de ambas, garantizando que el offset
     /// calculado cubra el peor caso de los dos obstáculos.
     /// </summary>
     private static List<ClashInterval> MergeOverlappingJumps(
         List<ClashInterval> clashes, Line axis, XYZ offDir,
-        double pipeSize, double margin, double effDistBase, double angleDeg)
+        double pipeSize, double margin, double effDistBase,
+        double angleStartDeg, double angleEndDeg, double gapGuard)
     {
+        clashes = clashes.OrderBy(c => c.A).ToList();
         if (clashes.Count <= 1) return clashes;
         double L = axis.Length;
-        double tanA = Math.Tan(angleDeg * Math.PI / 180.0);
+        double pad = margin + pipeSize / 2.0;
 
         bool changed = true;
         while (changed)
@@ -426,17 +438,15 @@ public class AvoiderPipeCommand : IExternalCommand
                 ClashInterval prev = result[^1];
                 ClashInterval curr = clashes[i];
 
-                // Offset real estimado para cada cruce (misma fórmula que en el loop principal)
                 double eff_prev = CalcEffDist(prev, axis, L, offDir, pipeSize, margin, effDistBase);
                 double eff_curr = CalcEffDist(curr, axis, L, offDir, pipeSize, margin, effDistBase);
 
-                // ¿Se solaparían los saltos?
-                // El salto izquierdo termina en: prev.B + margin + run_prev
-                // El salto derecho empieza en:  curr.A - margin - run_curr
-                double pbT_prev = prev.B + margin + eff_prev / tanA;
-                double paT_curr = curr.A - margin - eff_curr / tanA;
+                // El salto izquierdo termina en Pb = prev.B + pad + run(fin)
+                // El salto derecho empieza en  Pa = curr.A - pad - run(inicio)
+                double pbT_prev = prev.B + pad + Run(eff_prev, angleEndDeg);
+                double paT_curr = curr.A - pad - Run(eff_curr, angleStartDeg);
 
-                if (pbT_prev >= paT_curr - 1e-4)
+                if (pbT_prev + gapGuard >= paT_curr - 1e-4)
                 {
                     // Fusionar: un solo salto cubre ambos obstáculos
                     result[^1] = MergeTwo(prev, curr);

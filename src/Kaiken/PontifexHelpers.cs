@@ -10,7 +10,7 @@ namespace Kaiken;
 
 public enum JogDir { Arriba, Abajo, Izquierda, Derecha }
 
-public class AvoiderParams
+public class PontifexParams
 {
     public double DistanceFt = 0; // 0 = automatic minimum
     public JogDir Direction = JogDir.Abajo; // default is Abajo
@@ -36,6 +36,16 @@ public class ClashInterval
     /// </summary>
     public XYZ WorldBbMin = new XYZ(+1e9, +1e9, +1e9);
     public XYZ WorldBbMax = new XYZ(-1e9, -1e9, -1e9);
+
+    public void UnionBb(ClashInterval o)
+    {
+        WorldBbMin = new XYZ(Math.Min(WorldBbMin.X, o.WorldBbMin.X),
+                             Math.Min(WorldBbMin.Y, o.WorldBbMin.Y),
+                             Math.Min(WorldBbMin.Z, o.WorldBbMin.Z));
+        WorldBbMax = new XYZ(Math.Max(WorldBbMax.X, o.WorldBbMax.X),
+                             Math.Max(WorldBbMax.Y, o.WorldBbMax.Y),
+                             Math.Max(WorldBbMax.Z, o.WorldBbMax.Z));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -75,8 +85,30 @@ public abstract class MepOps
         if (proj != null) cleanPt = proj.XYZPoint;
 
         XYZ S = ln.GetEndPoint(0), E = ln.GetEndPoint(1);
-        var neu = Create(doc, m, cleanPt, E);
+
+        // Lo conectado en el extremo E (codo de un salto anterior, fitting, etc.) debe
+        // quedar unido al tramo nuevo pt..E. Si no se desconecta antes de acortar,
+        // Revit arrastra ese fitting hasta pt y el salto anterior queda roto.
+        var farRefs = new List<Connector>();
+        Connector? cE = PontifexHelpers.ConnectorAt(m, E);
+        if (cE != null && cE.IsConnected)
+        {
+            foreach (Connector r in cE.AllRefs)
+                if (r.Owner != null && r.Owner.Id != m.Id &&
+                    (r.ConnectorType == ConnectorType.End || r.ConnectorType == ConnectorType.Curve))
+                    farRefs.Add(r);
+            foreach (var r in farRefs) cE.DisconnectFrom(r);
+        }
+
         lc.Curve = Line.CreateBound(S, cleanPt);
+        var neu = Create(doc, m, cleanPt, E);
+        doc.Regenerate();
+
+        Connector? nE = PontifexHelpers.ConnectorAt(neu, E);
+        if (nE != null)
+            foreach (var r in farRefs)
+                try { nE.ConnectTo(r); } catch { }
+
         // start = lado -d, end = lado +d
         return (E - cleanPt).DotProduct(d) > 0 ? (m, neu) : (neu, m);
     }
@@ -84,7 +116,7 @@ public abstract class MepOps
     /// <summary>Clasifica las dos mitades tras un BreakCurve por utilitario.</summary>
     protected static (MEPCurve start, MEPCurve end) Classify(MEPCurve orig, MEPCurve created, XYZ pt, XYZ d)
     {
-        return AvoiderHelpers.FarSign(orig, pt, d) > 0 ? (created, orig) : (orig, created);
+        return PontifexHelpers.FarSign(orig, pt, d) > 0 ? (created, orig) : (orig, created);
     }
 
     /// <summary>
@@ -144,7 +176,7 @@ public class PipeOps : MepOps
     public override double NominalSize(MEPCurve m) => m.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble() ?? 0;
     public override (MEPCurve, MEPCurve) Break(Document doc, MEPCurve m, XYZ pt, XYZ d)
     {
-        Line? ln = AvoiderHelpers.Axis(m);
+        Line? ln = PontifexHelpers.Axis(m);
         XYZ cleanPt = pt;
         if (ln != null)
         {
@@ -161,7 +193,7 @@ public class DuctOps : MepOps
     public override MEPCurve Create(Document doc, MEPCurve t, XYZ a, XYZ b)
     {
         // Get the original path direction before copying
-        Line? origAxis = AvoiderHelpers.Axis(t);
+        Line? origAxis = PontifexHelpers.Axis(t);
         XYZ dOld = origAxis != null
             ? (origAxis.GetEndPoint(1) - origAxis.GetEndPoint(0)).Normalize()
             : XYZ.BasisX;
@@ -186,7 +218,7 @@ public class DuctOps : MepOps
     }
     public override (MEPCurve, MEPCurve) Break(Document doc, MEPCurve m, XYZ pt, XYZ d)
     {
-        Line? ln = AvoiderHelpers.Axis(m);
+        Line? ln = PontifexHelpers.Axis(m);
         XYZ cleanPt = pt;
         if (ln != null)
         {
@@ -202,7 +234,7 @@ public class TrayOps : MepOps
 {
     public override MEPCurve Create(Document doc, MEPCurve t, XYZ a, XYZ b)
     {
-        Line? origAxis = AvoiderHelpers.Axis(t);
+        Line? origAxis = PontifexHelpers.Axis(t);
         XYZ dOld = origAxis != null
             ? (origAxis.GetEndPoint(1) - origAxis.GetEndPoint(0)).Normalize()
             : XYZ.BasisX;
@@ -239,7 +271,7 @@ public class ConduitOps : MepOps
 }
 
 // ---------------------------------------------------------------------------
-public static class AvoiderHelpers
+public static class PontifexHelpers
 {
     public static readonly BuiltInCategory[] ObstacleCats =
     {
@@ -272,7 +304,14 @@ public static class AvoiderHelpers
         return set;
     }
 
-    private static (double tmin, double tmax, XYZ wMin, XYZ wMax) IntersectSolidCurve(Element e, Line line, XYZ S, XYZ d, Transform transform = null)
+    /// <summary>
+    /// Intersecta el sólido de <paramref name="e"/> con las líneas de prueba (en el espacio
+    /// del documento de <paramref name="e"/>) y devuelve el intervalo [tmin, tmax] sobre el
+    /// eje host S + t·d. <paramref name="toHost"/> lleva puntos del documento de e al host
+    /// (null si e está en el documento host). También devuelve la BB de e en coordenadas host.
+    /// </summary>
+    private static (double tmin, double tmax, XYZ wMin, XYZ wMax) IntersectSolidCurve(
+        Element e, IList<Line> lines, XYZ S, XYZ d, Transform? toHost = null)
     {
         double tmin = double.MaxValue;
         double tmax = double.MinValue;
@@ -286,15 +325,18 @@ public static class AvoiderHelpers
         void ProcessSolid(Solid s)
         {
             if (s.Volume <= 0) return;
-            SolidCurveIntersection sci = s.IntersectWithCurve(line, options);
-            if (sci != null)
+            foreach (Line line in lines)
             {
+                SolidCurveIntersection? sci;
+                try { sci = s.IntersectWithCurve(line, options); }
+                catch { continue; }
+                if (sci == null) continue;
                 for (int i = 0; i < sci.SegmentCount; i++)
                 {
                     Curve c = sci.GetCurveSegment(i);
                     XYZ p0 = c.GetEndPoint(0);
                     XYZ p1 = c.GetEndPoint(1);
-                    if (transform != null) { p0 = transform.OfPoint(p0); p1 = transform.OfPoint(p1); }
+                    if (toHost != null) { p0 = toHost.OfPoint(p0); p1 = toHost.OfPoint(p1); }
                     double t1 = (p0 - S).DotProduct(d);
                     double t2 = (p1 - S).DotProduct(d);
                     tmin = Math.Min(tmin, Math.Min(t1, t2));
@@ -303,16 +345,15 @@ public static class AvoiderHelpers
             }
         }
 
-        foreach (GeometryObject go in geom)
+        void ProcessGeometry(GeometryElement ge)
         {
-            if (go is Solid s) ProcessSolid(s);
-            else if (go is GeometryInstance gi)
+            foreach (GeometryObject go in ge)
             {
-                GeometryElement instGeom = gi.GetInstanceGeometry();
-                foreach (GeometryObject igo in instGeom)
-                    if (igo is Solid s2) ProcessSolid(s2);
+                if (go is Solid s) ProcessSolid(s);
+                else if (go is GeometryInstance gi) ProcessGeometry(gi.GetInstanceGeometry());
             }
         }
+        ProcessGeometry(geom);
 
         if (tmin <= tmax)
         {
@@ -321,7 +362,7 @@ public static class AvoiderHelpers
             {
                 foreach (var corner in Corners(bb))
                 {
-                    XYZ wc = transform != null ? transform.OfPoint(corner) : corner;
+                    XYZ wc = toHost != null ? toHost.OfPoint(corner) : corner;
                     wMin = new XYZ(Math.Min(wMin.X, wc.X), Math.Min(wMin.Y, wc.Y), Math.Min(wMin.Z, wc.Z));
                     wMax = new XYZ(Math.Max(wMax.X, wc.X), Math.Max(wMax.Y, wc.Y), Math.Max(wMax.Z, wc.Z));
                 }
@@ -330,7 +371,32 @@ public static class AvoiderHelpers
         return (tmin, tmax, wMin, wMax);
     }
 
-    public static List<ClashInterval> FindClashes(Document doc, MEPCurve mep, View view, AvoiderParams p)
+    /// <summary>
+    /// Líneas de prueba paralelas al eje: el eje mismo y 8 líneas en el contorno de la
+    /// sección (radio = tamaño/2). Así se detectan cruces donde el obstáculo toca el cuerpo
+    /// del elemento pero no su eje (p.ej. dos tuberías que se cruzan a distinta altura).
+    /// </summary>
+    private static List<Line> ProbeLines(XYZ S, XYZ E, XYZ d, double sizeFt)
+    {
+        var lines = new List<Line> { Line.CreateBound(S, E) };
+        double r = sizeFt / 2.0;
+        if (r < 1e-4) return lines;
+
+        XYZ u = OffsetDir(d, JogDir.Arriba);
+        if (u.GetLength() < 0.5) u = OffsetDir(d, JogDir.Derecha);
+        if (u.GetLength() < 0.5) return lines;
+        XYZ v = d.CrossProduct(u).Normalize();
+
+        for (int k = 0; k < 8; k++)
+        {
+            double a = k * Math.PI / 4.0;
+            XYZ o = (u * Math.Cos(a) + v * Math.Sin(a)) * r;
+            lines.Add(Line.CreateBound(S + o, E + o));
+        }
+        return lines;
+    }
+
+    public static List<ClashInterval> FindClashes(Document doc, MEPCurve mep, View view, PontifexParams p)
     {
         var result = new List<ClashInterval>();
         Line? axis = Axis(mep);
@@ -349,9 +415,12 @@ public static class AvoiderHelpers
             .Where(e => e.Id != mep.Id && !connected.Contains(e.Id))
             .ToList();
 
+        double size = MepOps.For(mep)?.NominalSize(mep) ?? 0;
+        var probes = ProbeLines(S, E, d, size);
+
         foreach (var c in clashers)
         {
-            var (tmin, tmax, wMin, wMax) = IntersectSolidCurve(c, axis, S, d);
+            var (tmin, tmax, wMin, wMax) = IntersectSolidCurve(c, probes, S, d);
             tmin = Math.Max(0, tmin); tmax = Math.Min(L, tmax);
             if (tmax <= tmin) continue;
             if (tmax < endGuard || tmin > L - endGuard) continue;
@@ -359,11 +428,10 @@ public static class AvoiderHelpers
         }
 
         // ── 2. Obstáculos en archivos Revit VINCULADOS (RevitLink) ─────────────
-        // Usamos intersección paramétrica rayo-AABB en el espacio local de cada
-        // bounding box (la transformación inversa lleva el eje MEP a ese espacio).
-        // Esto devuelve el intervalo EXACTO donde el eje cruza el elemento,
-        // evitando el problema anterior de proyectar toda la BB de elementos
-        // grandes (losas, muros) sobre el eje, que producía zonas de 30x.
+        // Las líneas de prueba se llevan al espacio del link y se intersectan con el
+        // sólido real de cada elemento; los puntos de corte vuelven al host. Así se
+        // obtiene el intervalo EXACTO donde el elemento cruza (sin proyectar toda la
+        // BB de losas o muros sobre el eje).
         var linkInstances = new FilteredElementCollector(doc, view.Id)
             .OfClass(typeof(RevitLinkInstance))
             .Cast<RevitLinkInstance>();
@@ -376,24 +444,28 @@ public static class AvoiderHelpers
             Transform linkXf    = linkInst.GetTotalTransform();
             Transform linkXfInv = linkXf.Inverse;
 
-            // Eje MEP en espacio del link (transformación rígida → conserva distancias)
-            XYZ S_l = linkXfInv.OfPoint(S);
-            XYZ d_l = linkXfInv.OfVector(d);
+            // Líneas de prueba llevadas al espacio del link. Los t se calculan siempre
+            // sobre el eje HOST (S, d): IntersectSolidCurve devuelve los puntos al host.
+            var localProbes = probes.Select(l => (Line)l.CreateTransformed(linkXfInv)).ToList();
+
+            // Prefiltro por caja: sin él se calcula la geometría de TODOS los muros,
+            // losas y vigas del link, lo que en modelos grandes es lentísimo.
+            XYZ la = linkXfInv.OfPoint(S), lb = linkXfInv.OfPoint(E);
+            double pad = size / 2.0 + 0.1;
+            var outline = new Outline(
+                new XYZ(Math.Min(la.X, lb.X) - pad, Math.Min(la.Y, lb.Y) - pad, Math.Min(la.Z, lb.Z) - pad),
+                new XYZ(Math.Max(la.X, lb.X) + pad, Math.Max(la.Y, lb.Y) + pad, Math.Max(la.Z, lb.Z) + pad));
 
             var linkObstacles = new FilteredElementCollector(linkDoc)
                 .WherePasses(new ElementMulticategoryFilter(ObstacleCats))
                 .WhereElementIsNotElementType()
+                .WherePasses(new BoundingBoxIntersectsFilter(outline))
                 .ToList();
 
             foreach (var lo in linkObstacles)
             {
-                // Para links, usamos la curva transformada al espacio del link
-                Curve localMepCurve = (mep.Location as LocationCurve).Curve.CreateTransformed(linkXfInv);
-                Line localAxis = localMepCurve as Line;
-                if (localAxis == null) continue;
-                
-                var (tmin, tmax, wMin, wMax) = IntersectSolidCurve(lo, localAxis, S_l, d_l, linkXf);
-                
+                var (tmin, tmax, wMin, wMax) = IntersectSolidCurve(lo, localProbes, S, d, linkXf);
+
                 tmin = Math.Max(0, tmin); tmax = Math.Min(L, tmax);
                 if (tmax <= tmin + 1e-6) continue;
                 if (tmax < endGuard || tmin > L - endGuard) continue;
@@ -450,6 +522,9 @@ public static class AvoiderHelpers
             {
                 merged[^1].B = Math.Max(merged[^1].B, it.B);
                 merged[^1].Clashers.AddRange(it.Clashers);
+                // La BB también se une: si no, el desvío se calcula solo con el primer
+                // obstáculo y el salto puede chocar con el segundo.
+                merged[^1].UnionBb(it);
             }
             else merged.Add(it);
         }
