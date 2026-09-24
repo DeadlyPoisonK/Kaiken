@@ -1,0 +1,7 @@
+Antes de continuar, cierra Revit si lo tienes abierto.
+
+Este instalador copia el complemento a tu carpeta de Revit. Si Revit está abierto,
+el archivo puede quedar bloqueado y la instalación fallar.
+
+Cuando termine, abre (o reinicia) Revit 2025 y busca la pestaña "RevitDynamoBridge"
+en la cinta de opciones.

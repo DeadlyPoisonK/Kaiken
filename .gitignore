@@ -1,0 +1,31 @@
+# Build
+bin/
+obj/
+*.user
+.vs/
+
+# Instalador: binarios generados y herramientas de terceros (no se versionan)
+installer/output/
+installer/build/
+installer/7z-extra/
+installer/lzma/
+installer/*.7z
+installer/config.txt
+installer/sfx_config.txt
+
+# Servidor MCP
+mcp-server/node_modules/
+
+# Herramientas locales
+graphify-out/
+**/graphify-out/
+*.bak
+test.txt
+src/Kaiken/Test.cs
+
+# Notas internas de desarrollo (contienen rutas y datos de proyectos privados)
+CONTEXTO_PROYECTO.md
+CONECTAR-MCP-DEV.md
+INSTALAR.md
+RELEASE.md
+ARQUITECTURA.md

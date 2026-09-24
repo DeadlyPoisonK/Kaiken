@@ -1,0 +1,32 @@
+<Window x:Class="Kaiken.ElbowRiseWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Rou-C — confirmar altura" Height="335" Width="400"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <StackPanel Margin="16">
+        <TextBlock x:Name="InfoText" TextWrapping="Wrap" Foreground="#1565C0"
+                   Margin="0,0,0,12" FontSize="11"/>
+
+        <StackPanel x:Name="SimplePanel">
+            <TextBlock Text="Altura del tramo nuevo (cm)" FontWeight="Bold" Margin="0,0,0,4"/>
+            <TextBox x:Name="RiseBox" Margin="0,0,0,10"
+                     ToolTip="Sugerido: lo que comen ambos codos de 90° + 1 cm de margen. Puedes subirlo si el espacio lo permite."/>
+        </StackPanel>
+
+        <CheckBox x:Name="DownCheck" Margin="0,0,0,10"
+                  Content="Conectar hacia abajo (por defecto: hacia arriba)"
+                  ToolTip="Sin marcar: el ramal libre se desplaza hacia arriba (+Z). Marcado: se desplaza hacia abajo (-Z)."/>
+
+        <CheckBox x:Name="InvertCheck" Margin="0,0,0,10"
+                  Content="Invertir lado a mover (intercambiar cuál se desplaza)"
+                  ToolTip="Sin marcar: se desplaza la segunda tubería conectada al codo. Marcado: se desplaza la primera tubería."/>
+
+        <TextBlock Text="La tubería elegida para mover se eleva/baja y se reconecta sola, generando los codos. Todo en una sola transacción (Ctrl+Z deshace todo)."
+                   TextWrapping="Wrap" FontSize="10" Foreground="Gray" Margin="0,0,0,10"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancelar" Width="80" Margin="0,0,8,0" Click="Cancel_Click"/>
+            <Button Content="Rou-C" Width="90" IsDefault="True" Click="Ok_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

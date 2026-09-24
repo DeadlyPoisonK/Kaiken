@@ -1,0 +1,110 @@
+<Window x:Class="Kaiken.DwgToBlocksWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DWG a Bloques — Importar Familias" Height="510" Width="480"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Convertir Bloques de CAD a Familias de Revit" 
+                   FontWeight="Bold" FontSize="13" Foreground="#1E293B" Margin="0,0,0,16" Grid.Row="0"/>
+
+        <!-- 1. Plano DWG -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Plano CAD / DWG:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <ComboBox x:Name="CadImportCombo" Grid.Column="1" Height="26" SelectionChanged="CadImportCombo_SelectionChanged"/>
+        </Grid>
+
+        <!-- 2. Filtro por Capa -->
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Filtrar por Capa:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <ComboBox x:Name="LayerCombo" Grid.Column="1" Height="26" SelectionChanged="LayerCombo_SelectionChanged"/>
+        </Grid>
+
+        <!-- 3. Bloque CAD -->
+        <Grid Grid.Row="3" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Bloque CAD:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <ComboBox x:Name="BlockCombo" Grid.Column="1" Height="26" IsEditable="True" IsTextSearchEnabled="True"/>
+        </Grid>
+
+        <!-- 4. Familia y Tipo Revit -->
+        <Grid Grid.Row="4" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Familia / Tipo Revit:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <ComboBox x:Name="FamilySymbolCombo" Grid.Column="1" Height="26" IsEditable="True" IsTextSearchEnabled="True"/>
+        </Grid>
+
+        <Separator Grid.Row="5" Margin="0,0,0,16"/>
+
+        <!-- Parámetros Rellenables -->
+        <StackPanel Grid.Row="6" Margin="0,0,0,12">
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Nivel de Base:" VerticalAlignment="Center"/>
+                <ComboBox x:Name="LevelCombo" Grid.Column="1" Height="24"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Elevación (m):" VerticalAlignment="Center"/>
+                <TextBox x:Name="ElevationBox" Grid.Column="1" Height="24" Text="0.0" ToolTip="Desfase vertical sobre el nivel de base (en metros)"/>
+                <TextBlock Text="m" VerticalAlignment="Center" Margin="8,0,0,0" Grid.Column="2" Foreground="Gray"/>
+            </Grid>
+
+            <!-- Checkbox usar elevación por defecto -->
+            <CheckBox x:Name="UseDefaultElevationCheckBox" Content="Usar elevación por defecto de la familia" 
+                      IsChecked="False" Margin="130,2,0,10" 
+                      Checked="UseDefaultElevationCheckBox_Changed" Unchecked="UseDefaultElevationCheckBox_Changed"/>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Ángulo Desfase (°):" VerticalAlignment="Center"/>
+                <TextBox x:Name="AngleOffsetBox" Grid.Column="1" Height="24" Text="0" ToolTip="Ángulo de rotación adicional en grados"/>
+                <TextBlock Text="grados" VerticalAlignment="Center" Margin="8,0,0,0" Grid.Column="2" Foreground="Gray"/>
+            </Grid>
+
+            <CheckBox x:Name="PinCheckBox" Content="Fijar elementos creados (Pin)" IsChecked="False" Margin="130,2,0,0"/>
+        </StackPanel>
+
+        <!-- Botones de Acción -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="7">
+            <Button Content="Cancelar" Width="90" Height="28" Margin="0,0,8,0" Click="Cancel_Click"/>
+            <Button Content="Colocar Familias" Width="130" Height="28" IsDefault="True" FontWeight="Bold" Click="Ok_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

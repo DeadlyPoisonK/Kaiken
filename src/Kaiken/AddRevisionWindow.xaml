@@ -1,0 +1,28 @@
+<Window x:Class="Kaiken.AddRevisionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Agregar Revisión" Height="330" Width="440"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <StackPanel Margin="16">
+        <TextBlock Text="Revisión:" FontWeight="Bold" Margin="0,0,0,4"/>
+        <TextBox x:Name="RevisionTextBox" Margin="0,0,0,12" FontSize="14" Padding="4"/>
+
+        <TextBlock Text="Fecha:" FontWeight="Bold" Margin="0,0,0,4"/>
+        <TextBox x:Name="DateTextBox" Margin="0,0,0,12" FontSize="14" Padding="4"/>
+
+        <TextBlock Text="Aplicar a:" FontWeight="Bold" Margin="0,0,0,4"/>
+        <ComboBox x:Name="SetComboBox" Margin="0,0,0,12"
+                  ToolTip="Elige un Sheet Set (Publish Set) para restringir la revisión, fecha y sincronización a esas láminas, sin tocar las demás."/>
+
+        <CheckBox x:Name="FilterLength29CheckBox" Content="Procesar solo láminas con Número de Plano &gt; 29 caracteres"
+                  IsChecked="True" Margin="0,0,0,8"
+                  ToolTip="Omite portadas u otras láminas secundarias. El largo mínimo y las láminas que se incluyen siempre se configuran en %APPDATA%\Kaiken\settings.json."/>
+
+        <TextBlock x:Name="AlwaysIncludeNote" FontStyle="Italic" Foreground="Gray" Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancelar" Width="80" Margin="0,0,8,0" Click="Cancel_Click"/>
+            <Button Content="Aplicar" Width="90" IsDefault="True" Click="Apply_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Revit 2025/2026 corren sobre .NET 8 -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Kaiken</RootNamespace>
+    <AssemblyName>Kaiken</AssemblyName>
+    <Version>1.12.0</Version>
+    <!-- Evita que el build copie RevitAPI.dll/RevitAPIUI.dll (ya están en la instalación de Revit) -->
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <!--
+      Versión de Revit contra la que se compila. Pásala en el comando de build para
+      generar el binario de la otra versión sin editar este archivo:
+        dotnet build -c Release -p:RevitVersion=2026
+      El add-in mismo no cambia de código entre versiones; solo cambian los contratos
+      de la API (paquete Nice3point) contra los que se compila.
+    -->
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2025</RevitVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Paquetes de Nice3point con los contratos de la Revit API para no tener que instalar el SDK completo -->
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="$(RevitVersion).0.*" ExcludeAssets="runtime" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="$(RevitVersion).0.*" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copia el manifiesto .addin junto al .dll compilado, para facilitar la instalación -->
+    <None Include="..\..\manifest\Kaiken.addin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Íconos de los botones de la cinta, cargados vía pack URI (Resource, no EmbeddedResource) -->
+    <Resource Include="Resources\*.png" />
+  </ItemGroup>
+
+</Project>

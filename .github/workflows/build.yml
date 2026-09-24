@@ -1,0 +1,30 @@
+name: Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        revit: ["2025", "2026"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build Kaiken for Revit ${{ matrix.revit }}
+        run: dotnet build src/Kaiken/Kaiken.csproj -c Release -p:RevitVersion=${{ matrix.revit }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kaiken-Revit${{ matrix.revit }}
+          path: |
+            src/Kaiken/bin/Release/net8.0-windows/Kaiken.dll
+            src/Kaiken/bin/Release/net8.0-windows/Kaiken.addin

@@ -1,0 +1,53 @@
+<Window x:Class="Kaiken.AvoiderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Avoider — reenrutar" Height="290" Width="300"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <StackPanel Margin="16">
+        <TextBlock Text="Hacia dónde" FontWeight="Bold" Margin="0,0,0,4"/>
+        <ComboBox x:Name="DirectionBox" Margin="0,0,0,10"
+                  ToolTip="Dirección del desvío respecto al elemento. En elementos verticales usa Izquierda/Derecha.">
+            <ComboBoxItem Content="Arriba"/>
+            <ComboBoxItem Content="Abajo" IsSelected="True"/>
+            <ComboBoxItem Content="Izquierda"/>
+            <ComboBoxItem Content="Derecha"/>
+        </ComboBox>
+
+        <Grid Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Ángulo Inicio (°)" FontWeight="Bold" Margin="0,0,0,4"/>
+                <ComboBox x:Name="StartAngleBox">
+                    <ComboBoxItem Content="30"/>
+                    <ComboBoxItem Content="45"/>
+                    <ComboBoxItem Content="60"/>
+                    <ComboBoxItem Content="90"/>
+                </ComboBox>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Ángulo Fin (°)" FontWeight="Bold" Margin="0,0,0,4"/>
+                <ComboBox x:Name="EndAngleBox">
+                    <ComboBoxItem Content="30"/>
+                    <ComboBoxItem Content="45"/>
+                    <ComboBoxItem Content="60"/>
+                    <ComboBoxItem Content="90"/>
+                </ComboBox>
+            </StackPanel>
+        </Grid>
+
+        <CheckBox x:Name="MergeBox" Content="Unir obstáculos cercanos en un salto" IsChecked="True" Margin="0,0,0,4"
+                  ToolTip="Si dos obstáculos están cerca, hace un solo salto que cubre ambos."/>
+        
+        <CheckBox x:Name="ChkRotateTee" Content="Girar Te en caso de conflicto (atraviesa red.)" IsChecked="False" Margin="0,0,0,16"
+                  ToolTip="Borra reducciones y gira la Te original hacia la vertical para generar el desvío si no hay espacio."/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancelar" Width="80" Margin="0,0,8,0" Click="Cancel_Click"/>
+            <Button Content="Reenrutar" Width="90" IsDefault="True" Click="Ok_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

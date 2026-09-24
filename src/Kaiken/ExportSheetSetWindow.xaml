@@ -1,0 +1,21 @@
+﻿<Window x:Class="Kaiken.ExportSheetSetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Exportar" Height="230" Width="480"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <StackPanel Margin="16">
+        <TextBlock Text="Carpeta de destino" FontWeight="Bold" Margin="0,0,0,4"/>
+        <DockPanel Margin="0,0,0,12">
+            <Button DockPanel.Dock="Right" Content="..." Width="30" Click="BrowseFolder_Click"/>
+            <TextBox x:Name="FolderTextBox" Margin="0,0,8,0"/>
+        </DockPanel>
+
+        <TextBlock Text="Set de hojas (Sheet Set)" FontWeight="Bold" Margin="0,0,0,4"/>
+        <ComboBox x:Name="SetComboBox" Margin="0,0,0,16"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancelar" Width="80" Margin="0,0,8,0" Click="Cancel_Click"/>
+            <Button x:Name="ExportButton" Content="Exportar" Width="80" IsDefault="True" Click="Export_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

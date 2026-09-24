@@ -1,0 +1,31 @@
+﻿<Window x:Class="Kaiken.JoinOffsetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Unir" Height="230" Width="340"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="OffsetText" Text="Desnivel detectado: 0 cm"
+                   FontWeight="Bold" FontSize="12" Margin="0,0,0,16" Grid.Row="0"/>
+
+        <RadioButton x:Name="Radio45" Content="Dos codos de 45Â°" GroupName="Angulo"
+                     IsChecked="True" Margin="0,0,0,8" Grid.Row="1"/>
+        <RadioButton x:Name="Radio90" Content="Dos codos de 90Â°" GroupName="Angulo"
+                     Margin="0,0,0,12" Grid.Row="2"/>
+
+        <TextBlock Text="Ninguno de los dos tramos cambia de altura: se conectan con un tramo intermedio y dos codos, sin mover verticalmente ninguno de los dos."
+                   TextWrapping="Wrap" FontSize="10" Foreground="Gray" Grid.Row="3" Margin="0,0,0,16"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="4">
+            <Button Content="Cancelar" Width="80" Margin="0,0,8,0" Height="24" Click="Cancel_Click"/>
+            <Button Content="Unir" Width="90" IsDefault="True" Height="24" Click="Ok_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

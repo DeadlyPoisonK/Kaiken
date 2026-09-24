@@ -1,0 +1,14 @@
+{
+  "name": "revit-dynamo-bridge-dev-mcp",
+  "version": "0.1.0",
+  "description": "Servidor MCP local (dev-ops) para compilar e instalar el add-in RevitDynamoBridge sin pasos manuales.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.9.0",
+    "zod": "^3.23.8"
+  }
+}

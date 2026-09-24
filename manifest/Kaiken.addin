@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Kaiken</Name>
+    <!--
+      IMPORTANTE: esta ruta debe apuntar al .dll compilado. Si sigues la guía de
+      instalación tal cual (build a la carpeta bin\Release), no hace falta tocarla.
+    -->
+    <Assembly>Kaiken.dll</Assembly>
+    <AddInId>924425ec-d569-445c-8460-381e2dfabb13</AddInId>
+    <FullClassName>Kaiken.App</FullClassName>
+    <VendorId>KPC</VendorId>
+    <VendorDescription>Kevin Perez - desarrollo propio</VendorDescription>
+  </AddIn>
+</RevitAddIns>

@@ -1,0 +1,55 @@
+<Window x:Class="Kaiken.CeilingAltWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Ceiling-Alt — Configurar Elevación" Height="315" Width="360"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Configura los parámetros para Ceiling-Alt:" 
+                   FontWeight="Bold" FontSize="12" Margin="0,0,0,16" Grid.Row="0"/>
+
+        <!-- Altura Configurable -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="100"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Elevación final (m) respecto al nivel:" VerticalAlignment="Center"/>
+            <TextBox x:Name="ElevationBox" Grid.Column="1" Height="24" Text="3.05"
+                     ToolTip="Altura final a la que se elevará el tramo de oficina."/>
+        </Grid>
+
+        <!-- Distancia al muro -->
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="100"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Distancia de corte al muro (cm):" VerticalAlignment="Center"/>
+            <TextBox x:Name="OffsetBox" Grid.Column="1" Height="24" Text="5.0"
+                     ToolTip="Distancia desde la cara del muro donde se hará el corte vertical."/>
+        </Grid>
+
+        <!-- Invertir sentido -->
+        <Grid Grid.Row="3" Margin="0,0,0,12">
+            <CheckBox x:Name="InvertirBox" Content="Invertir dirección del salto (lado oficina / pasillo)" 
+                      ToolTip="Activa esto si el salto se dibuja al revés de lo esperado." VerticalAlignment="Center"/>
+        </Grid>
+
+        <TextBlock Text="Se cortará la tubería antes del muro, se elevará el tramo posterior y se conectará con dos codos de 90°."
+                   TextWrapping="Wrap" FontSize="10" Foreground="Gray" Grid.Row="4" Margin="0,0,0,16"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="5">
+            <Button Content="Cancelar" Width="80" Margin="0,0,8,0" Height="24" Click="Cancel_Click"/>
+            <Button Content="Aceptar" Width="90" IsDefault="True" Height="24" Click="Ok_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
