@@ -1,6 +1,6 @@
 # Cambios
 
-## 1.12.0 (en desarrollo)
+## 1.12.0 (2026-09-24)
 
 - **Fix:** Kaiken ya no deja de cargar cuando hay dos Revit abiertos a la vez (ej. 2025 y 2026). Antes, si el puerto del puente en vivo estaba ocupado, Revit descartaba todo el add-in con "Revit cannot run the external application".
 - **Fix:** se compila contra la versión base de la API de cada año (2025.0 / 2026.0), así funciona en cualquier actualización de Revit y desaparece el aviso "Assembly version conflict".

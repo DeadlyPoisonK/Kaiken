@@ -1,0 +1,78 @@
+name: Release
+
+# Se dispara al subir un tag de versión, ej.:
+#   git tag v1.12.0
+#   git push origin v1.12.0
+# Compila Kaiken para Revit 2025 y 2026, genera el instalador combinado con Inno Setup
+# y publica un release de GitHub con el .exe adjunto y las notas del CHANGELOG.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Verificar que el tag coincide con la versión
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart("v")
+          $csproj = ([xml](Get-Content src/Kaiken/Kaiken.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          $iss = (Select-String -Path installer/Kaiken.iss -Pattern '#define MyAppVersion "(.+)"').Matches[0].Groups[1].Value
+          if ($tag -ne $csproj -or $tag -ne $iss) {
+            throw "Versiones distintas: tag=$tag, Kaiken.csproj=$csproj, Kaiken.iss=$iss"
+          }
+
+      - name: Compilar para Revit 2025 y 2026
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force installer/build | Out-Null
+          foreach ($v in "2025", "2026") {
+            dotnet build src/Kaiken/Kaiken.csproj -c Release -p:RevitVersion=$v -o "out/$v"
+            if ($LASTEXITCODE -ne 0) { throw "Falló la compilación para Revit $v" }
+            Copy-Item "out/$v/Kaiken.dll" "installer/build/Kaiken-$v.dll"
+          }
+
+      - name: Generar instalador
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc installer/Kaiken.iss
+          if ($LASTEXITCODE -ne 0) { throw "Falló Inno Setup" }
+
+      - name: Extraer notas del CHANGELOG
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart("v")
+          $notes = @()
+          $inSection = $false
+          foreach ($line in Get-Content CHANGELOG.md -Encoding utf8) {
+            if ($line -match '^## ') {
+              if ($inSection) { break }
+              $inSection = $line -match "^## $([regex]::Escape($tag))\b"
+              continue
+            }
+            if ($inSection) { $notes += $line }
+          }
+          $notes += ""
+          $notes += "**Instalación:** descarga ``Kaiken-Setup-$tag.exe``, cierra Revit y ejecútalo. Instala el add-in para Revit 2025 y 2026."
+          $notes -join "`n" | Out-File release-notes.md -Encoding utf8
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Kaiken ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: installer/output/Kaiken-Setup-*.exe

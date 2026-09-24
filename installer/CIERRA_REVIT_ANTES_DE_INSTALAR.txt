@@ -1,4 +1,4 @@
-Antes de continuar, cierra Revit si lo tienes abierto.
+﻿Antes de continuar, cierra Revit si lo tienes abierto.
 
 Este instalador copia el complemento a tu carpeta de Revit. Si Revit está abierto,
 el archivo puede quedar bloqueado y la instalación fallar.
