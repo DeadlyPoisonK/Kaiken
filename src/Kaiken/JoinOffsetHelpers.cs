@@ -73,7 +73,7 @@ public static class JoinOffsetHelpers
             ConnB = cb,
             DirA = dirA,
             OffsetVec = offsetVec,
-            OffsetCm = offsetFt / AvoiderHelpers.CmToFeet,
+            OffsetCm = offsetFt / PontifexHelpers.CmToFeet,
         };
     }
 
@@ -98,10 +98,10 @@ public static class JoinOffsetHelpers
         MEPCurve mid = ops.Create(doc, a, jogStart, jogEnd);
         doc.Regenerate();
 
-        Connector? freshA = AvoiderHelpers.ConnectorAt(a, jogStart);
-        Connector? midAtStart = AvoiderHelpers.ConnectorAt(mid, jogStart);
-        Connector? midAtEnd = AvoiderHelpers.ConnectorAt(mid, jogEnd);
-        Connector? freshB = AvoiderHelpers.ConnectorAt(b, jogEnd);
+        Connector? freshA = PontifexHelpers.ConnectorAt(a, jogStart);
+        Connector? midAtStart = PontifexHelpers.ConnectorAt(mid, jogStart);
+        Connector? midAtEnd = PontifexHelpers.ConnectorAt(mid, jogEnd);
+        Connector? freshB = PontifexHelpers.ConnectorAt(b, jogEnd);
 
         if (freshA == null || midAtStart == null || midAtEnd == null || freshB == null)
             throw new InvalidOperationException("No se pudieron ubicar los conectores del salto tras regenerar el modelo.");

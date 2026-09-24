@@ -546,11 +546,11 @@ public static class LiveBridgeOperations
             // pueden ser asimétricos; riseCm solo, a falta de esos, se reparte por igual.
             double bigCm = bigStubCmArg ?? (riseCmArg ?? 12.0) / 2.0;
             double smallCm = smallStubCmArg ?? (riseCmArg ?? 12.0) / 2.0;
-            double bigFt = bigCm * AvoiderHelpers.CmToFeet;
-            double smallFt = smallCm * AvoiderHelpers.CmToFeet;
+            double bigFt = bigCm * PontifexHelpers.CmToFeet;
+            double smallFt = smallCm * PontifexHelpers.CmToFeet;
 
             var bigStub = trunkOps.Create(doc, trunkTemplateMc, teeLocation, teeLocation + dir * bigFt);
-            var bigBottom = AvoiderHelpers.ConnectorAt(bigStub, teeLocation)
+            var bigBottom = PontifexHelpers.ConnectorAt(bigStub, teeLocation)
                 ?? throw new InvalidOperationException("No se encontró el conector inferior del tramo nuevo.");
             var bigTop = bigStub.ConnectorManager.Connectors.Cast<Connector>().First(c => c.Origin.DistanceTo(teeLocation) > 1e-6);
 
@@ -561,7 +561,7 @@ public static class LiveBridgeOperations
 
             XYZ smallBottomPt = teeLocation + dir * bigFt;
             var smallStub = smallOps.Create(doc, smallTemplateMc, smallBottomPt, smallBottomPt + dir * smallFt);
-            var smallBottom = AvoiderHelpers.ConnectorAt(smallStub, smallBottomPt)
+            var smallBottom = PontifexHelpers.ConnectorAt(smallStub, smallBottomPt)
                 ?? throw new InvalidOperationException("No se encontró el conector inferior del tramo chico.");
             var smallTop = smallStub.ConnectorManager.Connectors.Cast<Connector>().First(c => c.Origin.DistanceTo(smallBottomPt) > 1e-6);
 
@@ -581,10 +581,10 @@ public static class LiveBridgeOperations
         else
         {
             // Sin reducción: un solo tramo del mismo tamaño, directo desde la Te nueva.
-            double riseFt = (riseCmArg ?? 12.0) * AvoiderHelpers.CmToFeet;
+            double riseFt = (riseCmArg ?? 12.0) * PontifexHelpers.CmToFeet;
 
             var stub = smallOps.Create(doc, smallTemplateMc, teeLocation, teeLocation + dir * riseFt);
-            var stubBottom = AvoiderHelpers.ConnectorAt(stub, teeLocation)
+            var stubBottom = PontifexHelpers.ConnectorAt(stub, teeLocation)
                 ?? throw new InvalidOperationException("No se encontró el conector inferior del tramo nuevo.");
             var stubTop = stub.ConnectorManager.Connectors.Cast<Connector>().First(c => c.Origin.DistanceTo(teeLocation) > 1e-6);
 
@@ -744,7 +744,7 @@ public static class LiveBridgeOperations
     /// realmente una Te nueva a cada lado (troncal y ramal) para el tamaño de tubería
     /// dado: crea 3 tramos cortos lejos del modelo real, los conecta con NewTeeFitting,
     /// y mide la distancia entre el punto de la Te y cada uno de sus conectores. Mismo
-    /// truco que AvoiderPipeCommand.MeasureElbowCtE, aplicado a una Te de 3 vías.
+    /// truco que PontifexCommand.MeasureElbowCtE, aplicado a una Te de 3 vías.
     /// </summary>
     internal static (double trunkStandoffFt, double branchStandoffFt) MeasureTeeStandoff(Document doc, MEPCurve trunkTemplate)
     {
@@ -766,9 +766,9 @@ public static class LiveBridgeOperations
             var segA = mepOps.Create(doc, trunkTemplate, trunkA, P1);
             var segB = mepOps.Create(doc, trunkTemplate, P1, trunkB);
             var segBranch = mepOps.Create(doc, trunkTemplate, P1, branchEnd);
-            var cA = AvoiderHelpers.ConnectorAt(segA, P1);
-            var cB = AvoiderHelpers.ConnectorAt(segB, P1);
-            var cBr = AvoiderHelpers.ConnectorAt(segBranch, P1);
+            var cA = PontifexHelpers.ConnectorAt(segA, P1);
+            var cB = PontifexHelpers.ConnectorAt(segB, P1);
+            var cBr = PontifexHelpers.ConnectorAt(segBranch, P1);
             if (cA != null && cB != null && cBr != null)
             {
                 var tee = doc.Create.NewTeeFitting(cA, cB, cBr);
@@ -793,7 +793,7 @@ public static class LiveBridgeOperations
     }
 
     /// <summary>
-    /// Mide, igual que el Avoider, el center-to-end real de un codo de 90° (vertical
+    /// Mide, igual que el Pontifex, el center-to-end real de un codo de 90° (vertical
     /// a horizontal, el caso exacto de reconnect_orphan_to_stub) para el tamaño de
     /// tubería dado. Transacción de prueba, siempre se descarta.
     /// </summary>
@@ -801,7 +801,7 @@ public static class LiveBridgeOperations
     {
         var mepOps = MepOps.For(template) ?? new PipeOps();
         double sizeFt = Math.Max(mepOps.NominalSize(template), 0.02);
-        double fallback = AvoiderHelpers.EstimateElbow(sizeFt, 90);
+        double fallback = PontifexHelpers.EstimateElbow(sizeFt, 90);
 
         XYZ P1 = new XYZ(5000, 5000, 0);
         double len = 5.0;
@@ -815,8 +815,8 @@ public static class LiveBridgeOperations
             t.Start();
             var s1 = mepOps.Create(doc, template, P0, P1);
             var s2 = mepOps.Create(doc, template, P1, P2);
-            var c1 = AvoiderHelpers.ConnectorAt(s1, P1);
-            var c2 = AvoiderHelpers.ConnectorAt(s2, P1);
+            var c1 = PontifexHelpers.ConnectorAt(s1, P1);
+            var c2 = PontifexHelpers.ConnectorAt(s2, P1);
             if (c1 != null && c2 != null)
             {
                 var elbow = doc.Create.NewElbowFitting(c1, c2);
@@ -857,8 +857,8 @@ public static class LiveBridgeOperations
             t.Start();
             var bigSeg = bigOps.Create(doc, bigTemplate, bigStart, P0);
             var smallSeg = smallOps.Create(doc, smallTemplate, P0, smallEnd);
-            var cBig = AvoiderHelpers.ConnectorAt(bigSeg, P0);
-            var cSmall = AvoiderHelpers.ConnectorAt(smallSeg, P0);
+            var cBig = PontifexHelpers.ConnectorAt(bigSeg, P0);
+            var cSmall = PontifexHelpers.ConnectorAt(smallSeg, P0);
             if (cBig != null && cSmall != null)
             {
                 var trans = doc.Create.NewTransitionFitting(cBig, cSmall);
@@ -941,8 +941,8 @@ public static class LiveBridgeOperations
 
     /// <summary>
     /// Núcleo de suggest_tee_rise: mide en pruebas descartables (misma técnica que el
-    /// Avoider) el espacio físico real que ocupan la Te nueva, la Transición (si aplica)
-    /// y el codo final. Misma filosofía del Avoider: mínimo real + 1 cm de margen, SIN
+    /// Pontifex) el espacio físico real que ocupan la Te nueva, la Transición (si aplica)
+    /// y el codo final. Misma filosofía del Pontifex: mínimo real + 1 cm de margen, SIN
     /// inflar de más — dos fittings consecutivos en el mismo tramo recto se "comen"
     /// espacio desde AMBOS extremos a la vez, así que el mínimo de cada tramo es la SUMA
     /// de lo que comen los dos fittings que lo limitan (no el máximo, que subestimaría,
@@ -950,7 +950,7 @@ public static class LiveBridgeOperations
     /// </summary>
     internal static TeeRiseSuggestion SuggestTeeRiseCore(Document doc, long teeId, double marginCm)
     {
-        double marginFt = marginCm * AvoiderHelpers.CmToFeet;
+        double marginFt = marginCm * PontifexHelpers.CmToFeet;
 
         var parts = IdentifyTeeParts(doc, teeId);
         if (parts.Error != null)
@@ -1169,7 +1169,7 @@ public static class LiveBridgeOperations
 
     internal static ElbowRiseSuggestion SuggestElbowRiseCore(Document doc, long elbowId, double marginCm)
     {
-        double marginFt = marginCm * AvoiderHelpers.CmToFeet;
+        double marginFt = marginCm * PontifexHelpers.CmToFeet;
 
         var elbow = doc.GetElement(new ElementId(elbowId)) as FamilyInstance;
         if (elbow == null)
@@ -1267,7 +1267,7 @@ public static class LiveBridgeOperations
         doc.Regenerate();
 
         // 5. Crear tramo vertical (stub)
-        double riseFt = riseCm * AvoiderHelpers.CmToFeet;
+        double riseFt = riseCm * PontifexHelpers.CmToFeet;
         XYZ dirZ = downward ? -XYZ.BasisZ : XYZ.BasisZ;
         XYZ stubStart = new XYZ(C.X, C.Y, posA.Z);
         XYZ stubEnd = stubStart + dirZ * riseFt;
