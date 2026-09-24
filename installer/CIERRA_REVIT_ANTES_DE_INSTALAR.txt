@@ -3,5 +3,5 @@ Antes de continuar, cierra Revit si lo tienes abierto.
 Este instalador copia el complemento a tu carpeta de Revit. Si Revit está abierto,
 el archivo puede quedar bloqueado y la instalación fallar.
 
-Cuando termine, abre (o reinicia) Revit 2025 y busca la pestaña "RevitDynamoBridge"
+Cuando termine, abre (o reinicia) Revit 2025 o 2026 y busca la pestaña "Kaiken"
 en la cinta de opciones.

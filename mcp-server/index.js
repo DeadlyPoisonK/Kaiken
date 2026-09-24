@@ -35,7 +35,7 @@ import net from "node:net";
 
 const execAsync = promisify(exec);
 
-// Rutas calculadas relativas a este archivo (mcp-server/index.js vive dentro de RevitDynamoBridge/)
+// Rutas calculadas relativas a este archivo (mcp-server/index.js vive dentro del repo Kaiken/)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_DIR = path.resolve(__dirname, "..");
 const SRC_DIR = path.join(PROJECT_DIR, "src", "Kaiken");
@@ -50,7 +50,7 @@ function revitJournalsDir(version) {
   return path.join(process.env.LOCALAPPDATA, "Autodesk", "Revit", `Autodesk Revit ${version}`, "Journals");
 }
 
-const server = new McpServer({ name: "revit-dynamo-bridge-dev", version: "0.1.0" });
+const server = new McpServer({ name: "kaiken-dev", version: "0.1.0" });
 
 server.tool(
   "check_dotnet_sdk",
