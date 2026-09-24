@@ -145,11 +145,12 @@ server.tool(
   }
 );
 
-const DEFAULT_DYNAMO_DIR = process.env.KAIKEN_DYNAMO_DIR || "E:\\Documents\\BIM Studio\\DYNAMO";
+// Carpeta de grafos .dyn por defecto: se define con la variable de entorno KAIKEN_DYNAMO_DIR.
+const DEFAULT_DYNAMO_DIR = process.env.KAIKEN_DYNAMO_DIR || "";
 
 server.tool(
   "list_dynamo_graphs",
-  "Lista los archivos .dyn encontrados en una carpeta (por defecto, la carpeta de grafos Dynamo de Kevin).",
+  "Lista los archivos .dyn encontrados en una carpeta (por defecto, la de la variable de entorno KAIKEN_DYNAMO_DIR).",
   { folder: z.string().default(DEFAULT_DYNAMO_DIR).describe("Carpeta donde buscar archivos .dyn") },
   async ({ folder }) => {
     if (!fs.existsSync(folder)) {
@@ -358,7 +359,7 @@ server.tool(
 
 server.tool(
   "revit_get_export_info",
-  "Diagnóstico para la rutina de exportación IFC batch (ROR-RENGO): sobre el documento actualmente ACTIVO, devuelve título, vistas 3D cuyo nombre contiene 'no editar' (tolerando espacios/variantes, con conteo para detectar ambigüedad), y el 'user visible path' del cloud model (para reconstruir el ModelPath más adelante con Application.OpenDocumentFile).",
+  "Diagnóstico para la rutina de exportación IFC batch: sobre el documento actualmente ACTIVO, devuelve título, vistas 3D cuyo nombre contiene 'no editar' (tolerando espacios/variantes, con conteo para detectar ambigüedad), y el 'user visible path' del cloud model (para reconstruir el ModelPath más adelante con Application.OpenDocumentFile).",
   {},
   async () => {
     try {

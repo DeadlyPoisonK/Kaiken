@@ -91,7 +91,7 @@ public static class LiveBridgeOperations
     }
 
     /// <summary>
-    /// Para la rutina de exportación IFC batch (ROR-RENGO): sobre el documento
+    /// Para la rutina de exportación IFC batch: sobre el documento
     /// abierto, busca vistas 3D cuyo nombre contenga "no editar" (tolerando
     /// espacios múltiples/variantes entre las dos palabras — se probó contra
     /// los 13 modelos reales y el formato varía: "3D- NO EDITAR- PUBLICADO",
