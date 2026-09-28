@@ -1,7 +1,7 @@
 <Window x:Class="Kaiken.TeeRiseWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Rou-T — confirmar altura" Height="365" Width="400"
+        Title="Rou-T — confirmar altura" SizeToContent="Height" Width="400"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
     <StackPanel Margin="16">
         <TextBlock x:Name="InfoText" TextWrapping="Wrap" Foreground="#1565C0"
@@ -30,7 +30,13 @@
                   Content="Conectar hacia abajo (por defecto: hacia arriba)"
                   ToolTip="Sin marcar: el ramal nuevo apunta hacia arriba (+Z), como siempre. Marcado: apunta hacia abajo (-Z)."/>
 
-        <TextBlock Text="El troncal no se toca. La tubería vieja del ramal se sube y reconecta sola, generando el codo. Todo en una sola transacción (Ctrl+Z deshace todo)."
+        <!-- Solo si el ramal actual es vertical: sentido contrario o a un lado (queda horizontal). -->
+        <StackPanel x:Name="DirPanel" Margin="0,0,0,10" Visibility="Collapsed">
+            <TextBlock x:Name="DirHeader" FontWeight="Bold" Margin="0,0,0,4" TextWrapping="Wrap"/>
+            <StackPanel x:Name="DirOptions"/>
+        </StackPanel>
+
+        <TextBlock x:Name="FooterText" Text="El troncal no se toca. La tubería vieja del ramal se sube y reconecta sola, generando el codo. Todo en una sola transacción (Ctrl+Z deshace todo)."
                    TextWrapping="Wrap" FontSize="10" Foreground="Gray" Margin="0,0,0,10"/>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

@@ -1,5 +1,9 @@
 # Cambios
 
+## 1.13.0 (2026-09-24)
+
+- **Rou-T** ahora gira ramales verticales. Primero lee cómo está conectada la Te. Si el ramal es horizontal, sigue igual (arriba/abajo). Si ya sube o baja, ofrece el sentido vertical contrario o derecha/izquierda, según cómo se ve en la vista activa, para dejarlo horizontal. Borra el tramo corto y el codo viejos, y reconecta sola la tubería que seguía. Hacia el mismo lado que esa tubería, la lleva a la altura del troncal y la estira hasta la Te. Si va hacia el lado contrario, deja el tramo abierto y avisa.
+
 ## 1.12.0 (2026-09-24)
 
 - **Fix:** Kaiken ya no deja de cargar cuando hay dos Revit abiertos a la vez (ej. 2025 y 2026). Antes, si el puerto del puente en vivo estaba ocupado, Revit descartaba todo el add-in con "Revit cannot run the external application".

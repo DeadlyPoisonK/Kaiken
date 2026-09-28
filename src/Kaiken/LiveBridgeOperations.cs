@@ -498,19 +498,28 @@ public static class LiveBridgeOperations
     /// arriba, o un comando de la cinta) debe envolver la llamada en su propia Transaction.
     /// Lanza excepción si algo falla; no devuelve JSON.
     /// </summary>
-    internal static TeeFixResult FixBranchTeeUpCore(Document doc, long teeId, double? riseCmArg, double? bigStubCmArg, double? smallStubCmArg, bool downward = false)
+    internal static TeeFixResult FixBranchTeeUpCore(Document doc, long teeId, double? riseCmArg, double? bigStubCmArg, double? smallStubCmArg, bool downward = false) =>
+        FixBranchTeeUpCore(doc, teeId, riseCmArg, bigStubCmArg, smallStubCmArg, downward ? -XYZ.BasisZ : XYZ.BasisZ);
+
+    /// <summary>
+    /// Igual que la sobrecarga de arriba, pero con el ramal nuevo apuntando a <paramref name="dir"/>
+    /// (±Z o un lado horizontal perpendicular al troncal — ver BranchDirectionCandidates).
+    /// Si el ramal viejo era "tramo vertical + codo + tubería", borra también ese tramo y
+    /// ese codo; la tubería que sigue queda como la que hay que reconectar.
+    /// </summary>
+    internal static TeeFixResult FixBranchTeeUpCore(Document doc, long teeId, double? riseCmArg, double? bigStubCmArg, double? smallStubCmArg, XYZ dir)
     {
         var parts = IdentifyTeeParts(doc, teeId);
         if (parts.Error != null)
             throw new InvalidOperationException(parts.Error);
 
-        // Dirección del ramal nuevo: hacia arriba (+Z) por defecto, o hacia abajo (-Z) si se pide.
-        XYZ dir = downward ? -XYZ.BasisZ : XYZ.BasisZ;
+        dir = dir.Normalize();
 
         Element trunkPipeA = parts.TrunkPipeA!;
         Element trunkPipeB = parts.TrunkPipeB!;
         MEPCurve trunkTemplateMc = parts.TrunkTemplateMc!;
-        MEPCurve smallTemplateMc = parts.SmallTemplateMc!;
+        // Plantilla del tamaño chico: la tubería que se va a reconectar (sobrevive al borrado).
+        MEPCurve smallTemplateMc = parts.RunPipe!;
         bool hasReduction = parts.HasReduction;
         XYZ teeLocation = parts.TeeLocation;
 
@@ -518,8 +527,10 @@ public static class LiveBridgeOperations
         var smallOps = MepOps.For(smallTemplateMc) ?? new PipeOps();
         ElementId trunkAId = trunkPipeA.Id, trunkBId = trunkPipeB.Id;
 
-        doc.Delete(new ElementId(teeId));
-        if (parts.TransicionId != null) doc.Delete(parts.TransicionId);
+        var toDelete = new List<ElementId> { new ElementId(teeId) };
+        if (parts.TransicionId != null) toDelete.Add(parts.TransicionId);
+        toDelete.AddRange(parts.OldStubChainIds);
+        doc.Delete(toDelete);
         doc.Regenerate();
 
         // Los vecinos del troncal pueden ser tubería (MEPCurve) o un fitting/accesorio
@@ -575,7 +586,7 @@ public static class LiveBridgeOperations
                 BigStubId = bigStub.Id,
                 OpenStubId = smallStub.Id,
                 OpenTopElevationFt = smallTop.Origin.Z,
-                OrphanedOldChainStartId = smallTemplateMc.Id,
+                OrphanedOldChainStartId = smallTemplateMc.Id, // = parts.RunPipe
             };
         }
         else
@@ -599,7 +610,7 @@ public static class LiveBridgeOperations
                 NewTeeId = newTee.Id,
                 OpenStubId = stub.Id,
                 OpenTopElevationFt = stubTop.Origin.Z,
-                OrphanedOldChainStartId = smallTemplateMc.Id,
+                OrphanedOldChainStartId = smallTemplateMc.Id, // = parts.RunPipe
             };
         }
     }
@@ -616,6 +627,16 @@ public static class LiveBridgeOperations
         public bool HasReduction;
         public ElementId? TransicionId;
         public XYZ TeeLocation = XYZ.Zero;
+        /// <summary>Eje del troncal (unitario).</summary>
+        public XYZ TrunkDir = XYZ.BasisX;
+        /// <summary>Hacia dónde sale hoy el ramal desde la Te (unitario).</summary>
+        public XYZ BranchDir = XYZ.BasisZ;
+        /// <summary>true si el ramal sale vertical (±Z): tramo vertical + codo + tubería horizontal.</summary>
+        public bool BranchIsVertical;
+        /// <summary>La tubería que hay que reconectar tras rehacer la Te: SmallTemplateMc si el ramal es horizontal, o la que sigue al codo si es vertical.</summary>
+        public MEPCurve? RunPipe;
+        /// <summary>Tramo vertical y codo viejos que se borran junto con la Te (vacío si el ramal es horizontal).</summary>
+        public List<ElementId> OldStubChainIds = new();
     }
 
     /// <summary>
@@ -724,7 +745,50 @@ public static class LiveBridgeOperations
         XYZ trunkA = trunkAOther.Origin, trunkB = trunkBOther.Origin;
         XYZ trunkDir = (trunkB - trunkA).Normalize();
         double tProj = (cBranch.Origin - trunkA).DotProduct(trunkDir);
+        XYZ branchDir = cBranch.CoordinateSystem.BasisZ.Normalize();
 
+        // Ramal vertical (la Te ya baja o sube): lo que sigue es un tramo vertical corto,
+        // un codo y la tubería horizontal que continúa. Esa tubería es la que se reconecta;
+        // el tramo y el codo se rehacen.
+        MEPCurve runPipe = smallTemplateMc;
+        var oldChain = new List<ElementId>();
+        bool branchVertical = Math.Abs(branchDir.Z) > 0.9;
+        if (branchVertical)
+        {
+            if ((smallTemplateMc.Location as LocationCurve)?.Curve is not Line sLine || Math.Abs(sLine.Direction.Z) < 0.9)
+            {
+                result.Error = "El ramal sale vertical pero la tubería que le sigue no es un tramo vertical recto.";
+                return result;
+            }
+            var sFar = smallTemplateMc.ConnectorManager.Connectors.Cast<Connector>()
+                .OrderByDescending(c => c.Origin.DistanceTo(cBranch.Origin)).First();
+            var elbowConn = sFar.AllRefs.Cast<Connector>()
+                .FirstOrDefault(x => x.Owner is FamilyInstance && x.Owner.Id != smallTemplateMc.Id);
+            if (elbowConn?.Owner is not FamilyInstance elbowFi || elbowFi.MEPModel?.ConnectorManager?.Connectors.Size != 2)
+            {
+                result.Error = "El ramal sale vertical pero el tramo no termina en un codo.";
+                return result;
+            }
+            var elbowOut = elbowFi.MEPModel.ConnectorManager.Connectors.Cast<Connector>()
+                .OrderByDescending(c => c.Origin.DistanceTo(sFar.Origin)).First();
+            var runConn = elbowOut.AllRefs.Cast<Connector>()
+                .FirstOrDefault(x => x.Owner is MEPCurve && x.Owner.Id != elbowFi.Id);
+            if (runConn?.Owner is not MEPCurve run ||
+                (run.Location as LocationCurve)?.Curve is not Line rLine || Math.Abs(rLine.Direction.Z) > 0.1)
+            {
+                result.Error = "Después del codo del ramal no sigue una tubería horizontal recta.";
+                return result;
+            }
+            runPipe = run;
+            oldChain.Add(smallTemplateMc.Id);
+            oldChain.Add(elbowFi.Id);
+        }
+
+        result.TrunkDir = trunkDir;
+        result.BranchDir = branchDir;
+        result.BranchIsVertical = branchVertical;
+        result.RunPipe = runPipe;
+        result.OldStubChainIds = oldChain;
         result.TrunkPipeA = trunkPipeA;
         result.TrunkPipeB = trunkPipeB;
         result.TrunkTemplateMc = trunkTemplateMc;
@@ -957,7 +1021,7 @@ public static class LiveBridgeOperations
             throw new InvalidOperationException(parts.Error);
 
         var trunkTemplate = parts.TrunkTemplateMc!;
-        var smallTemplateMc = parts.SmallTemplateMc!;
+        var smallTemplateMc = parts.RunPipe!; // la tubería que termina conectada (mismo tamaño chico)
 
         var (_, branchStandoffFt) = MeasureTeeStandoff(doc, trunkTemplate);
         double elbowFt = MeasureElbow90Standoff(doc, smallTemplateMc);
@@ -1059,12 +1123,14 @@ public static class LiveBridgeOperations
         if (doc.GetElement(new ElementId(stubId)) is not MEPCurve stub)
             throw new InvalidOperationException($"El elemento {stubId} no es una tubería/MEPCurve válida.");
 
-        var orphanOpen = orphan.ConnectorManager.Connectors.Cast<Connector>().FirstOrDefault(c => !c.IsConnected);
         var stubOpen = stub.ConnectorManager.Connectors.Cast<Connector>().FirstOrDefault(c => !c.IsConnected);
-        if (orphanOpen == null)
-            throw new InvalidOperationException($"La tubería {orphanId} no tiene ningún conector abierto (¿ya está conectada?).");
         if (stubOpen == null)
             throw new InvalidOperationException($"El tramo {stubId} no tiene ningún conector abierto (¿ya está conectado?).");
+        // Si la tubería tiene los dos extremos abiertos, el que interesa es el del lado del tramo.
+        var orphanOpen = orphan.ConnectorManager.Connectors.Cast<Connector>()
+            .Where(c => !c.IsConnected).OrderBy(c => c.Origin.DistanceTo(stubOpen.Origin)).FirstOrDefault();
+        if (orphanOpen == null)
+            throw new InvalidOperationException($"La tubería {orphanId} no tiene ningún conector abierto (¿ya está conectada?).");
 
         XYZ target = stubOpen.Origin;
         double riseFt = target.Z - orphanOpen.Origin.Z;
@@ -1092,6 +1158,127 @@ public static class LiveBridgeOperations
         var elbow = doc.Create.NewElbowFitting(orphanFresh, stubFresh);
 
         return new ReconnectResult { ElbowId = elbow.Id, MovedPipeId = orphan.Id };
+    }
+
+    /// <summary>
+    /// Direcciones posibles para el ramal nuevo cuando el ramal actual es VERTICAL: el
+    /// sentido vertical contrario al actual, y los dos lados horizontales perpendiculares
+    /// al troncal (para dejarlo horizontal). Null si el ramal actual es horizontal (ahí
+    /// Rou-T sigue con sus opciones de siempre: arriba/abajo).
+    /// </summary>
+    internal static (XYZ opposite, XYZ side1, XYZ side2)? VerticalBranchOptions(TeeParts parts)
+    {
+        if (!parts.BranchIsVertical) return null;
+        XYZ opposite = parts.BranchDir.Z > 0 ? -XYZ.BasisZ : XYZ.BasisZ;
+        XYZ side = XYZ.BasisZ.CrossProduct(parts.TrunkDir);
+        if (side.GetLength() < 1e-6) return null; // troncal vertical: no hay "lado" definido
+        side = side.Normalize();
+        return (opposite, side, -side);
+    }
+
+    /// <summary>Cómo quedó la tubería del ramal después de rehacer la Te.</summary>
+    internal class RunReconnectResult
+    {
+        public bool Connected;
+        /// <summary>Motivo por el que quedó abierto (null si se conectó).</summary>
+        public string? Warning;
+    }
+
+    /// <summary>
+    /// Reconecta la tubería del ramal (<paramref name="runPipeId"/>) al tramo nuevo de la Te,
+    /// según hacia dónde apunte ese tramo (<paramref name="dir"/>):
+    /// - Vertical: igual que siempre (ReconnectOrphanToStubCore: sube/baja la tubería y codo).
+    /// - Horizontal y la tubería sigue en ese mismo sentido: se borra el tramo, la tubería
+    ///   se lleva a la altura del troncal y se estira directo hasta la Te (o la Transición).
+    /// - Horizontal y la tubería va de costado: se traslada entera hasta quedar alineada con
+    ///   el tramo, se estira su punta y se une con un codo.
+    /// - Horizontal y la tubería va hacia el lado contrario: no hay forma limpia; el tramo
+    ///   queda abierto y se devuelve un aviso.
+    /// Sin transacción propia.
+    /// </summary>
+    internal static RunReconnectResult ReconnectRunPipeCore(Document doc, long runPipeId, long stubId, XYZ dir)
+    {
+        dir = dir.Normalize();
+        if (Math.Abs(dir.Z) > 0.9)
+        {
+            ReconnectOrphanToStubCore(doc, runPipeId, stubId);
+            return new RunReconnectResult { Connected = true };
+        }
+
+        if (doc.GetElement(new ElementId(runPipeId)) is not MEPCurve run)
+            throw new InvalidOperationException($"El elemento {runPipeId} no es una tubería/MEPCurve válida.");
+        if (doc.GetElement(new ElementId(stubId)) is not MEPCurve stub)
+            throw new InvalidOperationException($"El elemento {stubId} no es una tubería/MEPCurve válida.");
+        if ((run.Location as LocationCurve)?.Curve is not Line runLine)
+            throw new InvalidOperationException($"La tubería {runPipeId} no es recta.");
+
+        var stubOpen = stub.ConnectorManager.Connectors.Cast<Connector>().FirstOrDefault(c => !c.IsConnected)
+            ?? throw new InvalidOperationException($"El tramo {stubId} no tiene ningún conector abierto.");
+        var runOpen = run.ConnectorManager.Connectors.Cast<Connector>()
+            .Where(c => !c.IsConnected).OrderBy(c => c.Origin.DistanceTo(stubOpen.Origin)).FirstOrDefault()
+            ?? throw new InvalidOperationException($"La tubería {runPipeId} no tiene ningún conector abierto.");
+
+        XYZ q0 = runLine.GetEndPoint(0), q1 = runLine.GetEndPoint(1);
+        bool openIsQ0 = q0.DistanceTo(runOpen.Origin) < q1.DistanceTo(runOpen.Origin);
+        XYZ openPt = openIsQ0 ? q0 : q1, farPt = openIsQ0 ? q1 : q0;
+        XYZ r = (farPt - openPt).Normalize(); // sentido en que sigue la tubería, alejándose de la Te
+
+        double dot = r.DotProduct(dir);
+        if (dot < -0.9)
+            return new RunReconnectResult { Warning = "la tubería del ramal sigue hacia el lado contrario; el tramo nuevo quedó abierto para que lo conectes a mano." };
+
+        if (dot > 0.9)
+        {
+            // Mismo sentido: sobra el tramo. Se borra y la tubería llega directo a la Te/Transición.
+            var stubBase = stub.ConnectorManager.Connectors.Cast<Connector>().First(c => c.IsConnected);
+            XYZ basePt = stubBase.Origin;
+            var fitConn = stubBase.AllRefs.Cast<Connector>().FirstOrDefault(x => x.Owner is FamilyInstance && x.Owner.Id != stub.Id)
+                ?? throw new InvalidOperationException("No se encontró el fitting al que llega el tramo nuevo.");
+            ElementId fitId = fitConn.Owner.Id;
+
+            doc.Delete(stub.Id);
+            doc.Regenerate();
+
+            var fitOpen = GetConnectorManager(doc.GetElement(fitId))!.Connectors.Cast<Connector>()
+                .Where(c => !c.IsConnected).OrderBy(c => c.Origin.DistanceTo(basePt)).First();
+
+            AlignAndStretchRun(doc, run, openPt, r, fitOpen.Origin);
+            var runFresh = run.ConnectorManager.Connectors.Cast<Connector>()
+                .OrderBy(c => c.Origin.DistanceTo(fitOpen.Origin)).First();
+            runFresh.ConnectTo(fitOpen);
+            return new RunReconnectResult { Connected = true };
+        }
+
+        // De costado: trasladar la tubería hasta alinearla con el tramo y unir con codo.
+        XYZ target = stubOpen.Origin;
+        AlignAndStretchRun(doc, run, openPt, r, target);
+        var runEnd = run.ConnectorManager.Connectors.Cast<Connector>().OrderBy(c => c.Origin.DistanceTo(target)).First();
+        var stubEnd = stub.ConnectorManager.Connectors.Cast<Connector>().OrderBy(c => c.Origin.DistanceTo(target)).First();
+        doc.Create.NewElbowFitting(runEnd, stubEnd);
+        return new RunReconnectResult { Connected = true };
+    }
+
+    /// <summary>
+    /// Traslada la tubería entera (rígido, sin girarla) lo justo para que su eje pase por
+    /// <paramref name="target"/>, y después corre solo su punta abierta a lo largo del eje
+    /// hasta <paramref name="target"/>. El otro extremo se mueve con la traslación.
+    /// </summary>
+    private static void AlignAndStretchRun(Document doc, MEPCurve run, XYZ openPt, XYZ axis, XYZ target)
+    {
+        XYZ d = target - openPt;
+        XYZ offset = d - axis * d.DotProduct(axis);
+        if (offset.GetLength() > 1e-6)
+        {
+            ElementTransformUtils.MoveElement(doc, run.Id, offset);
+            doc.Regenerate();
+        }
+
+        var lc = (LocationCurve)run.Location;
+        var line = (Line)lc.Curve;
+        XYZ p0 = line.GetEndPoint(0), p1 = line.GetEndPoint(1);
+        bool moveP0 = p0.DistanceTo(target) < p1.DistanceTo(target);
+        lc.Curve = Line.CreateBound(moveP0 ? target : p0, moveP0 ? p1 : target);
+        doc.Regenerate();
     }
 
     /// <summary>

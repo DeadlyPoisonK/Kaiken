@@ -112,7 +112,26 @@ public class FixBranchTeeCommand : IExternalCommand
         if (failedIds.Count > 0)
             multiInfo += $"⚠ {failedIds.Count} Te no se pudieron medir y se omitirán.\n";
 
-        var win = new TeeRiseWindow(worstCase, multiInfo, suggestions.Count);
+        // Si el ramal de la (primera) Te ya es vertical, las opciones cambian: el sentido
+        // vertical contrario, o derecha/izquierda (según la vista activa) para dejarlo horizontal.
+        List<TeeDirectionOption>? dirOptions = null;
+        string dirHeader = "";
+        var firstParts = LiveBridgeOperations.IdentifyTeeParts(doc, suggestions[0].teeId);
+        var vOpts = firstParts.Error == null ? LiveBridgeOperations.VerticalBranchOptions(firstParts) : null;
+        if (vOpts is var (opposite, side1, side2))
+        {
+            bool goesDown = firstParts.BranchDir.Z < 0;
+            dirHeader = goesDown ? "El ramal hoy va hacia abajo. Dejarlo:" : "El ramal hoy va hacia arriba. Dejarlo:";
+            dirOptions = new List<TeeDirectionOption>
+            {
+                new() { Label = opposite.Z > 0 ? "Hacia arriba (+Z)" : "Hacia abajo (−Z)", Dir = opposite },
+                new() { Label = ScreenLabel(uidoc.ActiveView, side1), Dir = side1 },
+                new() { Label = ScreenLabel(uidoc.ActiveView, side2), Dir = side2 },
+            };
+        }
+        bool verticalMode = dirOptions != null;
+
+        var win = new TeeRiseWindow(worstCase, multiInfo, suggestions.Count, dirOptions, dirHeader);
         if (win.ShowDialog() != true) return Result.Cancelled;
         var choice = win.Result;
 
@@ -123,20 +142,24 @@ public class FixBranchTeeCommand : IExternalCommand
         {
             int ok = 0;
             var erroresEnFix = new List<string>();
+            var abiertas = new List<string>();
 
             foreach (var (teeId, suggestion) in suggestions)
             {
                 try
                 {
-                    // Si esta Te individual tiene reducción, usar BigStub/SmallStub;
-                    // si no, usar RiseCm. Pero respetar el downward del usuario.
+                    XYZ dir = ResolveDirection(doc, teeId, verticalMode, choice);
+
+                    // Si esta Te individual tiene reducción, usar BigStub/SmallStub; si no, usar RiseCm.
                     bool useReduction = suggestion.HasReduction;
                     var fixResult = useReduction
-                        ? LiveBridgeOperations.FixBranchTeeUpCore(doc, teeId, null, choice.BigStubCm, choice.SmallStubCm, choice.Downward)
-                        : LiveBridgeOperations.FixBranchTeeUpCore(doc, teeId, choice.RiseCm, null, null, choice.Downward);
+                        ? LiveBridgeOperations.FixBranchTeeUpCore(doc, teeId, null, choice.BigStubCm, choice.SmallStubCm, dir)
+                        : LiveBridgeOperations.FixBranchTeeUpCore(doc, teeId, choice.RiseCm, null, null, dir);
 
-                    var reconnect = LiveBridgeOperations.ReconnectOrphanToStubCore(
-                        doc, fixResult.OrphanedOldChainStartId.Value, fixResult.OpenStubId.Value);
+                    var reconnect = LiveBridgeOperations.ReconnectRunPipeCore(
+                        doc, fixResult.OrphanedOldChainStartId.Value, fixResult.OpenStubId.Value, dir);
+                    if (!reconnect.Connected)
+                        abiertas.Add($"Te {teeId}: {reconnect.Warning}");
 
                     ok++;
                 }
@@ -156,11 +179,15 @@ public class FixBranchTeeCommand : IExternalCommand
 
             t.Commit();
 
-            string sentido = choice.Downward ? "hacia abajo" : "hacia arriba";
+            string sentido = verticalMode
+                ? $"— ramal: {choice.DirectionLabel}"
+                : (choice.Downward ? "hacia abajo" : "hacia arriba");
             string resumen = ok == 1
                 ? $"1 Te corregida {sentido}."
                 : $"{ok} Te corregidas {sentido}.";
 
+            if (abiertas.Count > 0)
+                resumen += $"\n⚠ {abiertas.Count} quedaron con el ramal abierto:\n" + string.Join("\n", abiertas.Take(3));
             if (erroresEnFix.Count > 0)
                 resumen += $"\n⚠ {erroresEnFix.Count} Te fallaron:\n" + string.Join("\n", erroresEnFix.Take(3));
 
@@ -173,5 +200,49 @@ public class FixBranchTeeCommand : IExternalCommand
             TaskDialog.Show("Rou-T", $"Falló, no se modificó el modelo (transacción revertida):\n{ex.Message}");
             return Result.Failed;
         }
+    }
+
+    /// <summary>
+    /// Dirección del ramal nuevo para una Te concreta del lote. Modo horizontal (lo de
+    /// siempre): ±Z según el check. Modo vertical: la Te también debe tener el ramal
+    /// vertical; si se eligió un lado, se toma el lado de ESTA Te más parecido al elegido.
+    /// </summary>
+    private static XYZ ResolveDirection(Document doc, long teeId, bool verticalMode, TeeRiseChoice choice)
+    {
+        var parts = LiveBridgeOperations.IdentifyTeeParts(doc, teeId);
+        if (parts.Error != null) throw new InvalidOperationException(parts.Error);
+
+        if (!verticalMode)
+        {
+            if (parts.BranchIsVertical)
+                throw new InvalidOperationException("su ramal es vertical (las demás son horizontales); procésala por separado.");
+            return choice.Downward ? -XYZ.BasisZ : XYZ.BasisZ;
+        }
+
+        var opts = LiveBridgeOperations.VerticalBranchOptions(parts)
+            ?? throw new InvalidOperationException("su ramal es horizontal (las demás son verticales); procésala por separado.");
+        XYZ wanted = choice.Direction ?? XYZ.BasisZ;
+        if (Math.Abs(wanted.Z) > 0.9) return wanted;
+
+        XYZ best = opts.side1.DotProduct(wanted) >= opts.side2.DotProduct(wanted) ? opts.side1 : opts.side2;
+        if (best.DotProduct(wanted) < 0.7)
+            throw new InvalidOperationException("su troncal va en otra dirección; el lado elegido no le corresponde.");
+        return best;
+    }
+
+    /// <summary>
+    /// Nombra una dirección horizontal según cómo se ve en la vista activa (la orientación
+    /// de pantalla que ya tiene Revit): derecha/izquierda/arriba/abajo en pantalla, o hacia
+    /// adentro/afuera si apunta al que mira (p. ej. en un corte).
+    /// </summary>
+    private static string ScreenLabel(View view, XYZ v)
+    {
+        double x = v.DotProduct(view.RightDirection);
+        double y = v.DotProduct(view.UpDirection);
+        if (Math.Sqrt(x * x + y * y) < 0.3)
+            return v.DotProduct(view.ViewDirection) > 0 ? "Hacia afuera de la pantalla" : "Hacia adentro de la pantalla";
+        if (Math.Abs(x) >= Math.Abs(y))
+            return x > 0 ? "→ Derecha" : "← Izquierda";
+        return y > 0 ? "↑ Arriba en pantalla" : "↓ Abajo en pantalla";
     }
 }
