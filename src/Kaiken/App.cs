@@ -229,7 +229,8 @@ public class App : IExternalApplication
         )
         {
             LargeImage = LoadIcon("fix_tee_up_32.png"),
-            ToolTip = "Gases medicinales: corrige una Te de ramal horizontal (cruza otras tuberías) rotándola hacia arriba, midiendo el espacio real necesario y reconectando con el codo — todo en un click.",
+            ToolTip = "Gira el ramal de una o varias Te y lo reconecta solo. Ramal horizontal: lo deja hacia arriba o abajo, midiendo el espacio real necesario, y reconecta con codo. " +
+                      "Ramal vertical: lo invierte (arriba/abajo) o lo deja horizontal a la derecha o izquierda, según la vista actual. Ctrl+Z deshace todo.",
         };
         mepPanel.AddItem(fixTeeButton);
 
@@ -280,6 +281,19 @@ public class App : IExternalApplication
             ToolTip = "Cambia en lote la Familia (Tipo) de las tuberías de la vista actual: elige la familia de origen, filtra por diámetro y elige la familia destino. Solo cambia la familia — el diámetro y demás parámetros de instancia se conservan.",
         };
         mepPanel.AddItem(changePipeTypeButton);
+
+        var connectSprinklersButton = new PushButtonData(
+            "ConnectSprinklersCommand",
+            "Conectar\nRociadores",
+            assemblyPath,
+            "Kaiken.ConnectSprinklersCommand"
+        )
+        {
+            LargeImage = LoadIcon("conectar_rociadores_32.png"),
+            ToolTip = "Conecta en lote los rociadores de la vista actual (por Familia/Tipo) a la tubería de incendio que pasa directamente sobre ellos, con bajada y Te o Tap según las preferencias de ruteo. " +
+                      "Descarta los ya conectados, avanza uno por uno con barra de progreso y marca en morado los que no se pudieron conectar. Quita el morado de los que ya estén conectados (también los conectados a mano).",
+        };
+        mepPanel.AddItem(connectSprinklersButton);
 
         // --- Panel Revisiones: Modificar Revisión / Cambiar Fecha y REV ---
         RibbonPanel revisionesPanel = application.CreateRibbonPanel(tabName, "Revisiones");

@@ -1,0 +1,58 @@
+<Window x:Class="Kaiken.ConnectSprinklersWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Conectar Rociadores" Height="560" Width="480"
+        WindowStartupLocation="CenterScreen" ResizeMode="CanResize" MinHeight="420" MinWidth="400">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" TextWrapping="Wrap" FontWeight="Bold" FontSize="12" Foreground="#1E293B" Margin="0,0,0,12"
+                   Text="Conecta los rociadores de la vista actual a la tubería que pasa directamente sobre ellos."/>
+
+        <TextBlock Grid.Row="1" Text="Rociadores (Familia : Tipo)" FontWeight="SemiBold" Margin="0,0,0,4"/>
+        <Border Grid.Row="2" BorderBrush="#CBD5E1" BorderThickness="1" Margin="0,0,0,12">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="SprinklerList" Margin="6"/>
+            </ScrollViewer>
+        </Border>
+
+        <TextBlock Grid.Row="3" Text="Tuberías a las que conectar (Tipo de Sistema)" FontWeight="SemiBold" Margin="0,0,0,4"/>
+        <Border Grid.Row="4" BorderBrush="#CBD5E1" BorderThickness="1" Margin="0,0,0,12">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="SystemList" Margin="6"/>
+            </ScrollViewer>
+        </Border>
+
+        <Grid Grid.Row="5" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="70"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="70"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Tolerancia en planta (cm):" VerticalAlignment="Center"
+                       ToolTip="Desfase máximo entre el rociador y el eje de la tubería. Si es mayor, el rociador se omite y se marca en morado."/>
+            <TextBox x:Name="ToleranceBox" Grid.Column="1" Text="1" Height="24" VerticalContentAlignment="Center"/>
+            <TextBlock Grid.Column="3" Text="Distancia máx. (m):" VerticalAlignment="Center"
+                       ToolTip="Hasta qué altura sobre el rociador se busca la tubería."/>
+            <TextBox x:Name="MaxDistanceBox" Grid.Column="4" Text="3" Height="24" VerticalContentAlignment="Center"/>
+        </Grid>
+
+        <TextBlock x:Name="PreviewText" Grid.Row="6" TextWrapping="Wrap" FontSize="11" Foreground="#1565C0" Margin="0,0,0,4"/>
+
+        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="Cancelar" Width="90" Height="28" Margin="0,0,8,0" Click="Cancel_Click"/>
+            <Button Content="Aceptar" Width="110" Height="28" IsDefault="True" FontWeight="Bold" Click="Ok_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
