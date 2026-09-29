@@ -1,0 +1,64 @@
+<Window x:Class="Kaiken.FindRoomWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Buscar Room" Height="560" Width="720"
+        WindowStartupLocation="CenterScreen" ResizeMode="CanResize" MinHeight="400" MinWidth="560">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" TextWrapping="Wrap" FontWeight="Bold" FontSize="12" Foreground="#1E293B" Margin="0,0,0,10"
+                   Text="Busca rooms por número, nombre, nivel o texto de sus etiquetas, en el modelo actual y en los vínculos."/>
+
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="SearchBox" Height="26" VerticalContentAlignment="Center" FontSize="13"
+                     TextChanged="SearchBox_TextChanged" PreviewKeyDown="SearchBox_PreviewKeyDown"/>
+            <CheckBox x:Name="IncludeLinksCheck" Grid.Column="1" Content="Incluir vínculos" IsChecked="True"
+                      VerticalAlignment="Center" Margin="12,0,0,0" Click="IncludeLinksCheck_Click"/>
+        </Grid>
+
+        <DataGrid x:Name="ResultsGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionMode="Single" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="#E2E8F0" BorderBrush="#CBD5E1" CanUserAddRows="False"
+                  SelectionChanged="ResultsGrid_SelectionChanged" MouseDoubleClick="ResultsGrid_MouseDoubleClick">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Número" Binding="{Binding Number}" Width="80"/>
+                <DataGridTextColumn Header="Nombre" Binding="{Binding Name}" Width="2*"/>
+                <DataGridTextColumn Header="Nivel" Binding="{Binding LevelName}" Width="*"/>
+                <DataGridTextColumn Header="Origen" Binding="{Binding Source}" Width="1.5*"/>
+                <DataGridTextColumn Header="Etiquetas" Binding="{Binding TagInfo}" Width="100"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <TextBlock x:Name="CountText" Grid.Row="3" FontSize="11" Foreground="Gray" Margin="0,4,0,8"/>
+
+        <Grid Grid.Row="4" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Vista destino:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <ComboBox x:Name="ViewCombo" Grid.Column="1" Height="26"/>
+        </Grid>
+        <TextBlock x:Name="InfoText" Grid.Row="5" FontSize="11" Foreground="#1565C0" TextWrapping="Wrap"
+                   Margin="90,2,0,0" VerticalAlignment="Top"/>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,28,0,0">
+            <Button Content="Cerrar" Width="80" Height="28" Margin="0,0,8,0" IsCancel="True" Click="Cancel_Click"/>
+            <Button x:Name="HighlightButton" Content="Destacar en vista actual" Width="170" Height="28" Margin="0,0,8,0"
+                    Click="Highlight_Click"/>
+            <Button x:Name="GoButton" Content="Ir a vista" Width="110" Height="28" IsDefault="True" FontWeight="Bold"
+                    Click="Go_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

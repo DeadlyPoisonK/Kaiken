@@ -295,6 +295,22 @@ public class App : IExternalApplication
         };
         mepPanel.AddItem(connectSprinklersButton);
 
+        // --- Panel Navegar: buscar rooms (incluidas las de vínculos) ---
+        RibbonPanel navegarPanel = application.CreateRibbonPanel(tabName, "Navegar");
+
+        var findRoomButton = new PushButtonData(
+            "FindRoomCommand",
+            "Buscar\nRoom",
+            assemblyPath,
+            "Kaiken.FindRoomCommand"
+        )
+        {
+            LargeImage = LoadIcon("buscar_room_32.png"),
+            ToolTip = "Busca rooms por número, nombre, nivel o texto de sus etiquetas, en el modelo actual y en los vínculos cargados. " +
+                      "Te lleva a una planta donde se ve la room (primero las que tienen su etiqueta) o la destaca en la vista actual: hace zoom y la deja seleccionada. No modifica el modelo.",
+        };
+        navegarPanel.AddItem(findRoomButton);
+
         // --- Panel Revisiones: Modificar Revisión / Cambiar Fecha y REV ---
         RibbonPanel revisionesPanel = application.CreateRibbonPanel(tabName, "Revisiones");
 
