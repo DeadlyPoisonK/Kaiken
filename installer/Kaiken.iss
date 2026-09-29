@@ -11,7 +11,7 @@
 ; (usa el .dll genérico de bin\Release, sin pasar por installer\build\)
 
 #define MyAppName "Kaiken"
-#define MyAppVersion "1.12.0"
+#define MyAppVersion "1.13.0"
 #define MyAppPublisher "Kevin Perez"
 
 ; Si se pasó /DRevitVersion=... por línea de comandos, generamos un instalador de una sola
@@ -26,6 +26,9 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={userappdata}\Kaiken
+; El AppId es el mismo que usaba RevitDynamoBridge: al instalar, Kaiken reemplaza su entrada en
+; "Aplicaciones instaladas". Sin esto, Inno reutilizaría la carpeta vieja (%APPDATA%\RevitDynamoBridge).
+UsePreviousAppDir=no
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 DisableReadyPage=yes
@@ -45,6 +48,19 @@ WizardStyle=modern
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
+
+[InstallDelete]
+; Restos del nombre anterior del add-in (RevitDynamoBridge): si quedan, Revit carga la cinta vieja
+; además de (o en vez de) Kaiken. Los instaladores viejos también llegaron a instalar en otros años.
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2023\RevitDynamoBridge.*"
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2024\RevitDynamoBridge.*"
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2025\RevitDynamoBridge.*"
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2026\RevitDynamoBridge.*"
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2027\RevitDynamoBridge.*"
+; Desinstalador viejo (su entrada en el registro la reemplaza la de Kaiken, que usa el mismo AppId).
+; Solo se borra la carpeta si queda vacía, por si alguien guardó ahí otros archivos.
+Type: files; Name: "{userappdata}\RevitDynamoBridge\unins*.*"
+Type: dirifempty; Name: "{userappdata}\RevitDynamoBridge"
 
 [Files]
 #ifdef SingleVersion

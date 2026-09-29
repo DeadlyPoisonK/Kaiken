@@ -9,7 +9,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Kaiken</RootNamespace>
     <AssemblyName>Kaiken</AssemblyName>
-    <Version>1.12.0</Version>
+    <Version>1.13.0</Version>
     <!-- Evita que el build copie RevitAPI.dll/RevitAPIUI.dll (ya están en la instalación de Revit) -->
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <!--

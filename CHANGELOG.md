@@ -1,8 +1,11 @@
 # Cambios
 
-## 1.13.0 (2026-09-24)
+## 1.13.0 (2026-09-29)
 
+- Botón **Buscar Room** (panel Navegar): busca rooms del modelo actual y de los vínculos cargados por número, nombre, nivel o texto de sus etiquetas (sin importar tildes ni mayúsculas). Elegida una, te lleva a una planta donde se ve (primero las vistas que tienen su etiqueta, luego las plantas de su nivel) o la destaca en la vista actual: hace zoom y la deja seleccionada junto con su etiqueta. No modifica el modelo.
+- Botón **Conectar Rociadores** (panel MEP): elige por Familia/Tipo los rociadores de la vista actual y los conecta, uno por uno, a la tubería de incendio que pasa directamente sobre ellos (bajada + Te o Tap según las preferencias de ruteo). Los ya conectados se descartan; los que no se pudieron conectar (desfasados, sin tubería encima o con error) quedan marcados en morado. Barra de progreso con opción de detener, y todo se deshace con un solo Ctrl+Z. Cada vez que se ejecuta quita la marca morada de los rociadores de la vista que ya estén conectados (p.ej. conectados a mano).
 - **Rou-T** ahora gira ramales verticales. Primero lee cómo está conectada la Te. Si el ramal es horizontal, sigue igual (arriba/abajo). Si ya sube o baja, ofrece el sentido vertical contrario o derecha/izquierda, según cómo se ve en la vista activa, para dejarlo horizontal. Borra el tramo corto y el codo viejos, y reconecta sola la tubería que seguía. Hacia el mismo lado que esa tubería, la lleva a la altura del troncal y la estira hasta la Te. Si va hacia el lado contrario, deja el tramo abierto y avisa.
+- El instalador desinstala solo la versión con el nombre anterior (RevitDynamoBridge): borra sus archivos de las carpetas de add-ins de Revit (para que no siga apareciendo la cinta vieja) y su desinstalador, y en "Aplicaciones instaladas" la entrada pasa a llamarse Kaiken. Ya no hay que borrar nada a mano.
 
 ## 1.12.0 (2026-09-24)
 
