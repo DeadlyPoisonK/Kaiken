@@ -107,7 +107,7 @@ public class AlignToWallCommand : IExternalCommand
                     .OfCategory(BuiltInCategory.OST_Walls)
                     .WhereElementIsNotElementType()
                     .WherePasses(localFilter)
-                    .Cast<Wall>()
+                    .OfType<Wall>()
                     .ToList();
 
                 foreach (var wall in localWalls)
@@ -161,7 +161,7 @@ public class AlignToWallCommand : IExternalCommand
                         .OfCategory(BuiltInCategory.OST_Walls)
                         .WhereElementIsNotElementType()
                         .WherePasses(linkFilter)
-                        .Cast<Wall>()
+                        .OfType<Wall>()
                         .ToList();
 
                     foreach (var wall in linkWalls)

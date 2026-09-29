@@ -106,7 +106,7 @@ public class AlignToWallCenterCommand : IExternalCommand
                     .OfCategory(BuiltInCategory.OST_Walls)
                     .WhereElementIsNotElementType()
                     .WherePasses(localFilter)
-                    .Cast<Wall>()
+                    .OfType<Wall>()
                     .ToList();
 
                 XYZ facingRef = new XYZ(fi.FacingOrientation.X, fi.FacingOrientation.Y, 0.0);
@@ -137,7 +137,7 @@ public class AlignToWallCenterCommand : IExternalCommand
                         .OfCategory(BuiltInCategory.OST_Walls)
                         .WhereElementIsNotElementType()
                         .WherePasses(linkFilter)
-                        .Cast<Wall>()
+                        .OfType<Wall>()
                         .ToList();
 
                     XYZ facingRefLocal = linkXfInv.OfVector(facingRef);
