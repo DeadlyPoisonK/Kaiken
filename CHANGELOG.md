@@ -1,5 +1,12 @@
 # Cambios
 
+## 1.14.0 (2026-10-01)
+
+- **Unir**: nueva opción **Cualquier °**. Elige el ángulo de los dos codos según el desnivel y la distancia entre los extremos: el salto llena el espacio entre ambos, sin pasar del mayor ángulo con que la diagonal alcanza para los dos codos ni bajar de 15° (salvo que no quepa otro). Si los extremos se traslapan, usa el mayor ángulo que cabe. Resuelve los casos (p.ej. escalerillas) donde 45° no cabía por espacio.
+- **Pontifex**: nueva casilla **Ángulo según altura**. En cada cruce parte del desvío que libra el obstáculo y elige para cada lado el ángulo más cercano a 45° con que caben los codos y el recorrido; si no cabe con ninguno, profundiza el salto de a 1 cm. El resumen muestra el desvío y los ángulos de cada cruce.
+- Pontifex con ángulos fijos: el tamaño real del codo se mide en la dirección del salto (antes siempre hacia arriba) y considerando los dos codos (entrada y salida), que en escalerillas son familias distintas.
+- **Fix:** en la ventana de Unir el texto "45°" se veía con caracteres raros.
+
 ## 1.13.0 (2026-09-29)
 
 - Botón **Buscar Room** (panel Navegar): busca rooms del modelo actual y de los vínculos cargados por número, nombre, nivel o texto de sus etiquetas (sin importar tildes ni mayúsculas). Elegida una, te lleva a una planta donde se ve (primero las vistas que tienen su etiqueta, luego las plantas de su nivel) o la destaca en la vista actual: hace zoom y la deja seleccionada junto con su etiqueta. No modifica el modelo.

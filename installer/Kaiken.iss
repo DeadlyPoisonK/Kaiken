@@ -11,7 +11,7 @@
 ; (usa el .dll genérico de bin\Release, sin pasar por installer\build\)
 
 #define MyAppName "Kaiken"
-#define MyAppVersion "1.13.0"
+#define MyAppVersion "1.14.0"
 #define MyAppPublisher "Kevin Perez"
 
 ; Si se pasó /DRevitVersion=... por línea de comandos, generamos un instalador de una sola

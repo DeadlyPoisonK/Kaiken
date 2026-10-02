@@ -1,7 +1,7 @@
 <Window x:Class="Kaiken.PontifexWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Pontifex — reenrutar" Height="290" Width="300"
+        Title="Pontifex — reenrutar" Height="315" Width="300"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
     <StackPanel Margin="16">
         <TextBlock Text="Hacia dónde" FontWeight="Bold" Margin="0,0,0,4"/>
@@ -13,7 +13,11 @@
             <ComboBoxItem Content="Derecha"/>
         </ComboBox>
 
-        <Grid Margin="0,0,0,10">
+        <CheckBox x:Name="AutoAngleBox" Content="Ángulo según altura" Margin="0,0,0,6"
+                  Checked="AutoAngle_Changed" Unchecked="AutoAngle_Changed"
+                  ToolTip="Para cada salto, parte del desvío necesario para librar el obstáculo y elige el ángulo de cada lado (lo más cercano a 45°) con que caben los codos y el recorrido. Si no cabe, profundiza el salto."/>
+
+        <Grid x:Name="AngleGrid" Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="10"/>

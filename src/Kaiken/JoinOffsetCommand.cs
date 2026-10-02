@@ -10,7 +10,8 @@ namespace Kaiken;
 /// <summary>
 /// Botón de cinta "Unir": conecta dos tramos MEP (tubería, ducto, bandeja o conduit) que
 /// corren paralelos pero están a distinta altura, con un salto de dos codos del mismo
-/// ángulo (45°+45° o 90°+90°, a elección del usuario). Ninguno de los dos tramos originales
+/// ángulo (45°+45°, 90°+90° o "Cualquier °": el que mejor quepa según desnivel y distancia).
+/// Ninguno de los dos tramos originales
 /// cambia de altura: el primero queda intacto y el segundo sólo se estira a lo largo de su
 /// propio eje hasta encontrarse con el salto.
 /// </summary>
@@ -72,22 +73,45 @@ public class JoinOffsetCommand : IExternalCommand
 
         var win = new JoinOffsetWindow(geo.OffsetCm);
         if (win.ShowDialog() != true) return Result.Cancelled;
-        bool use45 = win.Result.Use45;
+        bool auto = win.Result.AngleDeg == null;
+        double angleDeg;
+        if (win.Result.AngleDeg is double fixedAngle) angleDeg = fixedAngle;
+        else
+        {
+            MepOps? ops = MepOps.For(pipeA);
+            if (ops == null)
+            {
+                TaskDialog.Show("Unir", "Tipo de elemento MEP no soportado.");
+                return Result.Cancelled;
+            }
+            var elbows = ElbowTable.Measure(doc, pipeA, ops, geo.DirA, geo.OffsetVec.Normalize(), ElbowTable.Grid);
+            try
+            {
+                angleDeg = JoinOffsetHelpers.ChooseAngle(geo, elbows);
+            }
+            catch (InvalidOperationException ex)
+            {
+                TaskDialog.Show("Unir", $"No hay un ángulo con que el salto quepa:\n{ex.Message}");
+                return Result.Cancelled;
+            }
+        }
 
         using var t = new Transaction(doc, "Unir");
         t.Start();
         try
         {
-            JoinOffsetHelpers.Execute(doc, pipeA, pipeB, geo, use45);
+            JoinOffsetHelpers.Execute(doc, pipeA, pipeB, geo, angleDeg);
             t.Commit();
 
-            TaskDialog.Show("Unir", $"Listo. Tramos unidos con dos codos de {(use45 ? "45°" : "90°")}.");
+            TaskDialog.Show("Unir", $"Listo. Tramos unidos con dos codos de {angleDeg:0}°" +
+                (auto ? " (elegido según desnivel y distancia)." : "."));
             return Result.Succeeded;
         }
         catch (Exception ex)
         {
             if (t.HasStarted() && !t.HasEnded()) t.RollBack();
-            TaskDialog.Show("Unir", $"Falló, no se modificó el modelo (transacción revertida):\n{ex.Message}");
+            string hint = auto ? "" : "\n\nSi es por falta de espacio, prueba con \"Cualquier °\".";
+            TaskDialog.Show("Unir", $"Falló, no se modificó el modelo (transacción revertida):\n{ex.Message}{hint}");
             return Result.Failed;
         }
     }

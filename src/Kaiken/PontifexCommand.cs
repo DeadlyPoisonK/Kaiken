@@ -91,16 +91,22 @@ public class PontifexCommand : IExternalCommand
         }
 
         // Center-to-end real del codo de cada lado del salto: el codo en Pa usa el ángulo
-        // de inicio y el codo en Pb el de fin.
-        double minAngle = Math.Min(p.AngleDegStart, p.AngleDegEnd);
-        double dStart = MeasureElbowCtE(doc, mep, ops, d, p.AngleDegStart, size);
-        double dEnd = Math.Abs(p.AngleDegEnd - p.AngleDegStart) < 1e-6 ? dStart
-                    : MeasureElbowCtE(doc, mep, ops, d, p.AngleDegEnd, size);
-        double D = p.AngleDegStart <= p.AngleDegEnd ? dStart : dEnd;
+        // de inicio y el codo en Pb el de fin. En "Según altura" se miden todos los ángulos
+        // (cada salto elige los suyos) y el margen y las guardas se calculan con 45°.
+        double refStart = p.AutoAngle ? 45.0 : p.AngleDegStart;
+        double refEnd = p.AutoAngle ? 45.0 : p.AngleDegEnd;
+        var elbows = ElbowTable.Measure(doc, mep, ops, d, offDir,
+            p.AutoAngle ? ElbowTable.Grid : new[] { p.AngleDegStart, p.AngleDegEnd });
+        double minAngle = Math.Min(refStart, refEnd);
+        double dStart = elbows.CtE(refStart);
+        double dEnd = elbows.CtE(refEnd);
+        double D = refStart <= refEnd ? dStart : dEnd;
         var (minDist, minMargin) = PontifexHelpers.MinBridge(D, minAngle);
 
         string adj = "";
-        double effDistBase = Math.Max(p.DistanceFt, minDist);
+        // En "Según altura" el desvío parte del mínimo geométrico de cada cruce y
+        // PlanAutoJog lo profundiza sólo si los codos no caben.
+        double effDistBase = p.AutoAngle ? p.DistanceFt : Math.Max(p.DistanceFt, minDist);
         double margin = Math.Max(p.ClearanceFt, minMargin);
 
         // Recta mínima que debe quedar en cada tramo que se conserva:
@@ -126,8 +132,21 @@ public class PontifexCommand : IExternalCommand
         if (clashes.Count == 0) { TaskDialog.Show("Pontifex", "No se detectaron cruces con obstáculos en esta vista."); return Result.Succeeded; }
 
         int clashesBeforeMerge = clashes.Count;
+        // Recorrido de cada lado de un salto con desvío h, para decidir qué cruces fusionar.
+        // En "Según altura" se usa el ángulo más empinado con que caben los codos (el
+        // recorrido mínimo posible): si ni así se separan los saltos, hay que fusionarlos.
+        Func<double, double> runStart, runEnd;
+        if (p.AutoAngle)
+        {
+            runStart = runEnd = h => elbows.MaxAngle(h) is int a && a > 0 ? Run(h, a) : 0.0;
+        }
+        else
+        {
+            runStart = h => Run(h, p.AngleDegStart);
+            runEnd = h => Run(h, p.AngleDegEnd);
+        }
         clashes = MergeOverlappingJumps(clashes, axis, offDir, size, margin, effDistBase,
-                                        p.AngleDegStart, p.AngleDegEnd, gapGuard);
+                                        runStart, runEnd, gapGuard);
         if (clashes.Count < clashesBeforeMerge)
             adj += $"\n{clashesBeforeMerge - clashes.Count} cruce(s) próximos fusionados en un salto único.";
 
@@ -144,6 +163,7 @@ public class PontifexCommand : IExternalCommand
             ElementId currentId = mep.Id;
             double lastA = L;
             bool jumpToRight = false;
+            double lastStartD = 0; // "Según altura": D del codo de inicio del salto de la derecha
             for (int k = ordered.Count - 1; k >= 0; k--)
             {
                 var iv = ordered[k];
@@ -151,24 +171,45 @@ public class PontifexCommand : IExternalCommand
                 double cT = iv.B + margin + size / 2.0;
 
                 double effDist = CalcEffDist(iv, axis, L, offDir, size, margin, effDistBase);
-                if (effDist > effDistBase + 1e-4)
+                if (!p.AutoAngle && effDist > effDistBase + 1e-4)
                     log.Add($"Cruce t={iv.Mid:F2}: offset geométrico necesario {effDist * 30.48:F1} cm.");
+
+                double angStart = p.AngleDegStart, angEnd = p.AngleDegEnd;
+                bool teeEvasionLeft = false;
+                bool teeEvasionRight = false;
+
+                if (p.AutoAngle)
+                {
+                    var plan = PlanAutoJog(elbows, effDist, bT, lastA - cT, jumpToRight ? lastStartD : 0,
+                                           iv == firstClash && teeStart != null,
+                                           iv == lastClash && !jumpToRight && teeEnd != null);
+                    if (plan == null)
+                    {
+                        skipped++;
+                        log.Add($"Cruce t={iv.Mid:F2}: no hay espacio para los codos con ningún ángulo.");
+                        continue;
+                    }
+                    effDist = plan.H;
+                    angStart = plan.AngleStart;
+                    angEnd = plan.AngleEnd;
+                    teeEvasionLeft = plan.TeeLeft;
+                    teeEvasionRight = plan.TeeRight;
+                    log.Add($"Cruce t={iv.Mid:F2}: desvío {effDist * 30.48:F1} cm, codos " +
+                            $"{(teeEvasionLeft ? "Te" : $"{angStart:F0}°")} / {(teeEvasionRight ? "Te" : $"{angEnd:F0}°")}.");
+                }
 
                 XYZ off = offDir * effDist;
 
-                double reqRunLeft = Run(effDist, p.AngleDegStart);
-                double reqRunRight = Run(effDist, p.AngleDegEnd);
+                double reqRunLeft = teeEvasionLeft ? 0 : Run(effDist, angStart);
+                double reqRunRight = teeEvasionRight ? 0 : Run(effDist, angEnd);
                 double clashRunLeft = reqRunLeft;
                 double clashRunRight = reqRunRight;
 
                 double availLeft = bT - edgeGuardStart;
                 double availRight = lastA - cT - (jumpToRight ? gapGuard : edgeGuardEnd);
 
-                bool teeEvasionLeft = false;
-                bool teeEvasionRight = false;
-
-                // Lado izquierdo
-                if (clashRunLeft > availLeft)
+                // Lado izquierdo (en "Según altura" PlanAutoJog ya garantizó el espacio)
+                if (!p.AutoAngle && clashRunLeft > availLeft)
                 {
                     if (iv == firstClash && teeStart != null && bT < edgeGuardStart)
                     {
@@ -185,7 +226,7 @@ public class PontifexCommand : IExternalCommand
                 }
 
                 // Lado derecho
-                if (clashRunRight > availRight)
+                if (!p.AutoAngle && clashRunRight > availRight)
                 {
                     if (iv == lastClash && !jumpToRight && teeEnd != null && availRight < edgeGuardEnd)
                     {
@@ -318,6 +359,7 @@ public class PontifexCommand : IExternalCommand
                     elbowFails += ef;
                     lastA = paT;
                     jumpToRight = true;
+                    lastStartD = elbows.CtE(angStart);
                     done++;
                 }
                 catch (Exception ex)
@@ -332,7 +374,10 @@ public class PontifexCommand : IExternalCommand
 
         string kind = mep switch { Pipe => "tubería", Duct => "ducto", CableTray => "escalerilla", Conduit => "conduit", _ => "elemento" };
         string msg = $"Elemento: {kind}\nCruces detectados: {clashes.Count}\nSaltos creados: {done}\nOmitidos: {skipped}";
-        if (elbowFails > 0) msg += $"\nCodos no insertados: {elbowFails} (¿el tipo tiene codos de {p.AngleDegStart:F0}° / {p.AngleDegEnd:F0}°?)";
+        if (elbowFails > 0)
+            msg += p.AutoAngle
+                ? $"\nCodos no insertados: {elbowFails} (¿el tipo admite codos de cualquier ángulo?)"
+                : $"\nCodos no insertados: {elbowFails} (¿el tipo tiene codos de {p.AngleDegStart:F0}° / {p.AngleDegEnd:F0}°?)";
         if (adj.Length > 0) msg += "\n" + adj.Trim();
         if (log.Count > 0) msg += "\n\n" + string.Join("\n", log.Take(8));
         TaskDialog.Show("Pontifex", msg);
@@ -347,53 +392,68 @@ public class PontifexCommand : IExternalCommand
 
     private static double RoundUp10(double cm) => Math.Ceiling(cm / 10.0) * 10.0;
 
-    /// <summary>
-    /// Mide el center-to-end real (D) del codo del tipo del elemento: crea dos tramos que
-    /// forman el ángulo y les inserta un codo dentro de una transacción que se DESCARTA
-    /// (rollback: no deja nada en el modelo). Devuelve D en pies; si algo falla, estima.
-    /// </summary>
-    private static double MeasureElbowCtE(Document doc, MEPCurve mep, MepOps ops, XYZ axisDir, double angleDeg, double sizeFt)
+    private class AutoJog
     {
-        double fallback = PontifexHelpers.EstimateElbow(sizeFt, angleDeg);
-        XYZ perp = PontifexHelpers.OffsetDir(axisDir, JogDir.Arriba);
-        if (perp.GetLength() < 0.5) perp = PontifexHelpers.OffsetDir(axisDir, JogDir.Derecha);
-        if (perp.GetLength() < 0.5) return fallback;
+        public double H;
+        public double AngleStart = 90.0, AngleEnd = 90.0;
+        public bool TeeLeft, TeeRight;
+    }
 
-        Line? ax = PontifexHelpers.Axis(mep);
-        if (ax == null) return fallback;
+    /// <summary>
+    /// "Según altura": parte del desvío mínimo que libra el obstáculo (h0) y elige, para cada
+    /// lado del salto, el ángulo entero más cercano a 45° con que (1) la diagonal aloja sus dos
+    /// codos y 1 cm de recta, y (2) su recorrido a lo largo del eje cabe en el espacio libre,
+    /// dejando recta para el codo del extremo o del salto vecino. Si a ese desvío algún lado no
+    /// cabe con ningún ángulo, se profundiza el salto de a 1 cm: a más desvío caben codos más
+    /// empinados, que recorren menos. Si ni así cabe, ese lado usa la evasión de Te cuando está
+    /// permitida. Devuelve null si no hay solución.
+    /// </summary>
+    private static AutoJog? PlanAutoJog(ElbowTable elbows, double h0, double spaceLeft, double spaceRight,
+        double rightNeighborD, bool teeLeftAllowed, bool teeRightAllowed)
+    {
+        double s = ElbowTable.MinStraightFt;
+        double cm = PontifexHelpers.CmToFeet;
+        double GuardLeft(double a) => Math.Max(elbows.CtE(a) + s, 3 * cm);
+        double GuardRight(double a) => rightNeighborD > 0
+            ? rightNeighborD + elbows.CtE(a) + s
+            : Math.Max(elbows.CtE(a) + s, 3 * cm);
+        // Con este desvío ya caben codos de 90° (recorrido 0): profundizar más no gana espacio.
+        double hMax = Math.Max(h0, 2 * elbows.CtE(90) + s) + cm;
 
-        double th = angleDeg * Math.PI / 180.0;
-        double len = 5.0;
-        XYZ P1 = ax.GetEndPoint(0) + perp * 30.0;            // a un costado, espacio vacío (se descarta igual)
-        XYZ dir2 = (axisDir * Math.Cos(th) + perp * Math.Sin(th)).Normalize();
-        XYZ P0 = P1 - axisDir * len;
-        XYZ P2 = P1 + dir2 * len;
-
-        double D = fallback;
-        using (var t = new Transaction(doc, "medir codo"))
+        foreach (bool allowTee in new[] { false, true })
         {
-            try
+            if (allowTee && !teeLeftAllowed && !teeRightAllowed) break;
+            for (double h = Math.Max(h0, cm); h <= hMax; h += cm)
             {
-                t.Start();
-                var s1 = ops.Create(doc, mep, P0, P1);
-                var s2 = ops.Create(doc, mep, P1, P2);
-                var c1 = PontifexHelpers.ConnectorAt(s1, P1);
-                var c2 = PontifexHelpers.ConnectorAt(s2, P1);
-                if (c1 != null && c2 != null)
-                {
-                    var elbow = doc.Create.NewElbowFitting(c1, c2);
-                    doc.Regenerate();
-                    XYZ origin = (elbow.Location as LocationPoint)?.Point ?? P1;
-                    double best = 0;
-                    foreach (Connector c in elbow.MEPModel.ConnectorManager.Connectors)
-                        best = Math.Max(best, origin.DistanceTo(c.Origin));
-                    if (best > 1e-4) D = best;
-                }
+                int aL = PickAngle(elbows, h, a => spaceLeft - GuardLeft(a));
+                int aR = PickAngle(elbows, h, a => spaceRight - GuardRight(a));
+                bool teeL = aL == 0 && allowTee && teeLeftAllowed;
+                bool teeR = aR == 0 && allowTee && teeRightAllowed;
+                if ((aL > 0 || teeL) && (aR > 0 || teeR))
+                    return new AutoJog
+                    {
+                        H = h,
+                        AngleStart = aL > 0 ? aL : 90.0,
+                        AngleEnd = aR > 0 ? aR : 90.0,
+                        TeeLeft = teeL,
+                        TeeRight = teeR,
+                    };
             }
-            catch { D = fallback; }
-            t.RollBack();
         }
-        return D;
+        return null;
+    }
+
+    /// <summary>
+    /// Ángulo entero más cercano a 45° (a igual distancia, el más suave) con que un desvío h
+    /// cabe entre sus dos codos y cuyo recorrido no pasa de avail(ángulo). 0 si ninguno cabe.
+    /// </summary>
+    private static int PickAngle(ElbowTable elbows, double h, Func<double, double> avail)
+    {
+        for (int k = 0; k <= 45; k++)
+            foreach (int a in new[] { 45 - k, 45 + k })
+                if (a >= ElbowTable.MinAngle && a <= 90 && elbows.Fits(h, a) && Run(h, a) <= avail(a) + 1e-6)
+                    return a;
+        return 0;
     }
 
     private static int Elbow(Document doc, MEPCurve m1, XYZ p1, MEPCurve m2, XYZ p2)
@@ -420,7 +480,7 @@ public class PontifexCommand : IExternalCommand
     private static List<ClashInterval> MergeOverlappingJumps(
         List<ClashInterval> clashes, Line axis, XYZ offDir,
         double pipeSize, double margin, double effDistBase,
-        double angleStartDeg, double angleEndDeg, double gapGuard)
+        Func<double, double> runStart, Func<double, double> runEnd, double gapGuard)
     {
         clashes = clashes.OrderBy(c => c.A).ToList();
         if (clashes.Count <= 1) return clashes;
@@ -443,8 +503,8 @@ public class PontifexCommand : IExternalCommand
 
                 // El salto izquierdo termina en Pb = prev.B + pad + run(fin)
                 // El salto derecho empieza en  Pa = curr.A - pad - run(inicio)
-                double pbT_prev = prev.B + pad + Run(eff_prev, angleEndDeg);
-                double paT_curr = curr.A - pad - Run(eff_curr, angleStartDeg);
+                double pbT_prev = prev.B + pad + runEnd(eff_prev);
+                double paT_curr = curr.A - pad - runStart(eff_curr);
 
                 if (pbT_prev + gapGuard >= paT_curr - 1e-4)
                 {

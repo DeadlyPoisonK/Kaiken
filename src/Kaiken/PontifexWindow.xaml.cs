@@ -29,6 +29,9 @@ public partial class PontifexWindow : Window
         box.SelectedIndex = 1; // Default a 45
     }
 
+    private void AutoAngle_Changed(object sender, RoutedEventArgs e) =>
+        AngleGrid.IsEnabled = AutoAngleBox.IsChecked != true;
+
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
         double startAngle = 45;
@@ -45,6 +48,7 @@ public partial class PontifexWindow : Window
             DistanceFt = 0,
             AngleDegStart = startAngle,
             AngleDegEnd = endAngle,
+            AutoAngle = AutoAngleBox.IsChecked == true,
             ClearanceFt = 0,
             MergeClose = MergeBox.IsChecked == true,
             RotateTee = ChkRotateTee.IsChecked == true,

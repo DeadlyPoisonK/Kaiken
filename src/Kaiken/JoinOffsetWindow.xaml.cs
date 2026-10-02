@@ -5,7 +5,8 @@ namespace Kaiken;
 
 public class JoinOffsetChoice
 {
-    public bool Use45;
+    /// <summary>Ángulo de los dos codos; null = "Cualquier °" (se elige según desnivel y distancia).</summary>
+    public double? AngleDeg = 45.0;
 }
 
 public partial class JoinOffsetWindow : Window
@@ -20,7 +21,8 @@ public partial class JoinOffsetWindow : Window
 
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
-        Result = new JoinOffsetChoice { Use45 = Radio45.IsChecked == true };
+        double? angle = Radio45.IsChecked == true ? 45.0 : Radio90.IsChecked == true ? 90.0 : null;
+        Result = new JoinOffsetChoice { AngleDeg = angle };
         DialogResult = true;
     }
 

@@ -13,12 +13,14 @@ public class JoinOffsetGeometry
     public XYZ DirA = XYZ.Zero;      // dirección de salida (outward) del conector abierto de "a"
     public XYZ OffsetVec = XYZ.Zero; // componente perpendicular a DirA entre los dos ejes
     public double OffsetCm;
+    public double GapFt;             // distancia a lo largo de DirA entre los dos extremos abiertos (≤ 0 si se traslapan)
+    public double LengthAFt, LengthBFt;
 }
 
 /// <summary>
 /// Lógica del botón "Unir": conecta dos tramos MEP paralelos que están a distinta altura
 /// (o con cualquier otro desnivel perpendicular a su eje) mediante un salto de dos codos
-/// del mismo ángulo (45°+45° o 90°+90°) y un tramo intermedio diagonal/vertical.
+/// del mismo ángulo (45°, 90° o el que mejor quepa) y un tramo intermedio diagonal/vertical.
 /// Ninguno de los dos tramos originales se desplaza verticalmente: "a" queda intacto y
 /// "b" sólo se estira a lo largo de su propio eje hasta encontrarse con el salto.
 /// </summary>
@@ -74,19 +76,57 @@ public static class JoinOffsetHelpers
             DirA = dirA,
             OffsetVec = offsetVec,
             OffsetCm = offsetFt / PontifexHelpers.CmToFeet,
+            GapFt = w.DotProduct(dirA),
+            LengthAFt = ((Line)lcA.Curve).Length,
+            LengthBFt = ((Line)lcB.Curve).Length,
         };
     }
 
     /// <summary>
-    /// Crea el salto: estira "b" a lo largo de su propio eje, crea el tramo intermedio
-    /// (vertical para 90°/90°, diagonal a 45° para 45°/45°) y los dos codos.
+    /// Opción "Cualquier °": elige el ángulo entero de los dos codos según el desnivel y la
+    /// distancia entre los extremos. Se busca que el salto llene justo el espacio entre ambos
+    /// (atan(desnivel / distancia)), sin pasar del mayor ángulo con que la diagonal aloja los
+    /// dos codos ni bajar de 15° (salvo que no quepa otro). Si los extremos se traslapan, se usa
+    /// el mayor ángulo que cabe, para acortar "b" lo menos posible.
     /// </summary>
-    public static void Execute(Document doc, MEPCurve a, MEPCurve b, JoinOffsetGeometry geo, bool use45)
+    public static double ChooseAngle(JoinOffsetGeometry geo, ElbowTable elbows)
     {
-        double offsetFt = geo.OffsetVec.GetLength();
-        // A 45°, el tramo intermedio recorre tanto a lo largo del eje como en perpendicular
-        // (mismo ángulo en ambos codos); a 90°, el tramo intermedio es puramente perpendicular.
-        double axialRun = use45 ? offsetFt : 0.0;
+        const double PreferredMinAngle = 15.0;
+        double h = geo.OffsetVec.GetLength();
+
+        int maxAngle = elbows.MaxAngle(h);
+        if (maxAngle == 0)
+            throw new InvalidOperationException(
+                $"El desnivel ({geo.OffsetCm:0.0} cm) es muy chico para dos codos de este tipo, ni siquiera a {ElbowTable.MinAngle}°.");
+
+        double fit = geo.GapFt > 1e-6 ? Math.Atan2(h, geo.GapFt) * 180.0 / Math.PI : 90.0;
+        double angle = Math.Floor(Math.Min(fit, maxAngle));
+        angle = Math.Max(angle, Math.Min(PreferredMinAngle, maxAngle));
+
+        double need = elbows.CtE(angle) + ElbowTable.MinStraightFt;
+        double shortenB = Math.Max(0, Run(h, angle) - geo.GapFt);
+        if (geo.LengthAFt < need)
+            throw new InvalidOperationException(
+                $"El primer tramo es muy corto para alojar un codo de {angle:0}° (necesita {need / PontifexHelpers.CmToFeet:0} cm).");
+        if (geo.LengthBFt - shortenB < need)
+            throw new InvalidOperationException(
+                $"Con codos de {angle:0}° el segundo tramo queda muy corto: los extremos están demasiado traslapados para este desnivel.");
+        return angle;
+    }
+
+    /// <summary>Largo a lo largo del eje de la diagonal de un desvío h con codos a angleDeg.</summary>
+    private static double Run(double h, double angleDeg) =>
+        angleDeg >= 89.999 ? 0.0 : h / Math.Tan(angleDeg * Math.PI / 180.0);
+
+    /// <summary>
+    /// Crea el salto: estira "b" a lo largo de su propio eje, crea el tramo intermedio
+    /// (vertical a 90°, diagonal al ángulo dado en otro caso) y los dos codos.
+    /// </summary>
+    public static void Execute(Document doc, MEPCurve a, MEPCurve b, JoinOffsetGeometry geo, double angleDeg)
+    {
+        // El tramo intermedio avanza a lo largo del eje desnivel / tan(θ) (mismo ángulo en
+        // ambos codos); a 90° es puramente perpendicular.
+        double axialRun = Run(geo.OffsetVec.GetLength(), angleDeg);
 
         XYZ jogStart = geo.ConnA.Origin;
         XYZ jogEnd = jogStart + geo.DirA.Multiply(axialRun) + geo.OffsetVec;

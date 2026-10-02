@@ -808,7 +808,7 @@ public static class LiveBridgeOperations
     /// realmente una Te nueva a cada lado (troncal y ramal) para el tamaño de tubería
     /// dado: crea 3 tramos cortos lejos del modelo real, los conecta con NewTeeFitting,
     /// y mide la distancia entre el punto de la Te y cada uno de sus conectores. Mismo
-    /// truco que PontifexCommand.MeasureElbowCtE, aplicado a una Te de 3 vías.
+    /// truco que ElbowTable.Measure, aplicado a una Te de 3 vías.
     /// </summary>
     internal static (double trunkStandoffFt, double branchStandoffFt) MeasureTeeStandoff(Document doc, MEPCurve trunkTemplate)
     {

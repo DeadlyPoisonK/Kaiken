@@ -16,6 +16,7 @@ public class PontifexParams
     public JogDir Direction = JogDir.Abajo; // default is Abajo
     public double AngleDegStart = 45.0;
     public double AngleDegEnd = 45.0;
+    public bool AutoAngle; // "Según altura": ángulo de cada lado elegido por salto según el desvío y el espacio
     public double ClearanceFt = 0; // 0 = automatic minimum
 
     public bool MergeClose = true;
