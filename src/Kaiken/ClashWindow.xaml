@@ -1,0 +1,61 @@
+<Window x:Class="Kaiken.ClashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Interferencias" Height="640" Width="560"
+        WindowStartupLocation="CenterScreen" ResizeMode="CanResize" MinHeight="480" MinWidth="460">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" TextWrapping="Wrap" FontWeight="Bold" FontSize="12" Foreground="#1E293B" Margin="0,0,0,12"
+                   Text="Marca en una vista 3D propia los elementos que chocan, con el volumen del choque en rojo. No modifica ninguna vista existente."/>
+
+        <!-- 1. Qué revisar -->
+        <GroupBox Grid.Row="1" Header="1. Revisar (elementos de este modelo)" Margin="0,0,0,10" Padding="6">
+            <StackPanel x:Name="APanel"/>
+        </GroupBox>
+
+        <!-- 2. Contra qué categorías -->
+        <GroupBox Grid.Row="2" Header="2. Contra estas categorías" Margin="0,0,0,10" Padding="6">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+                    <Button Content="Todas" Width="70" Height="22" Margin="0,0,6,0" Click="AllCats_Click"/>
+                    <Button Content="Ninguna" Width="70" Height="22" Click="NoCats_Click"/>
+                </StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <WrapPanel x:Name="BPanel" Orientation="Horizontal"/>
+                </ScrollViewer>
+            </DockPanel>
+        </GroupBox>
+
+        <!-- 3. Contra qué modelos -->
+        <GroupBox Grid.Row="3" Header="3. En estos modelos" Margin="0,0,0,10" Padding="6">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+                    <Button Content="Todos" Width="70" Height="22" Margin="0,0,6,0" Click="AllModels_Click"/>
+                    <Button Content="Ninguno" Width="70" Height="22" Click="NoModels_Click"/>
+                </StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="ModelPanel"/>
+                </ScrollViewer>
+            </DockPanel>
+        </GroupBox>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,4">
+            <TextBlock Text="Ignorar roces menores a" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <TextBox x:Name="ToleranceBox" Width="50" Height="24" Margin="8,0,6,0" VerticalContentAlignment="Center"/>
+            <TextBlock Text="mm" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Cancelar" Width="90" Height="28" Margin="0,0,8,0" Click="Cancel_Click"/>
+            <Button Content="Revisar" Width="120" Height="28" IsDefault="True" FontWeight="Bold" Click="Ok_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

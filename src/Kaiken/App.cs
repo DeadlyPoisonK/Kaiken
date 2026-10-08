@@ -295,6 +295,64 @@ public class App : IExternalApplication
         };
         mepPanel.AddItem(connectSprinklersButton);
 
+        // --- Panel Coordinación: interferencias ---
+        RibbonPanel coordinacionPanel = application.CreateRibbonPanel(tabName, "Coordinación");
+
+        var clashButton = new PushButtonData(
+            "ClashMarkerCommand",
+            "Interfe-\nrencias",
+            assemblyPath,
+            "Kaiken.ClashMarkerCommand"
+        )
+        {
+            LargeImage = LoadIcon("interferencias_32.png"),
+            ToolTip = "Revisa escalerillas (o ductos, tuberías, conduits) del modelo contra las categorías y vínculos que elijas, y muestra el resultado en una vista 3D propia: " +
+                      "todo semitransparente, los elementos con choque en naranjo y el volumen de cada choque en rojo. El resultado queda guardado en esa vista: " +
+                      "una nueva revisión la reemplaza, y para conservarla basta con cambiarle el nombre. No se toca ninguna otra vista.",
+        };
+        coordinacionPanel.AddItem(clashButton);
+
+        var clashNavButton = new PushButtonData(
+            "ClashNavigateCommand",
+            "Navegar\nInterferencias",
+            assemblyPath,
+            "Kaiken.ClashNavigateCommand"
+        )
+        {
+            LargeImage = LoadIcon("interferencias_navegar_32.png"),
+            ToolTip = "Abre la lista de interferencias de la vista activa (o de la vista por defecto) para revisarlas una por una: " +
+                      "va a cada choque con caja de sección y zoom, lo destaca en amarillo y permite marcarlo resuelto o re-verificar todo después de corregir.",
+        };
+        coordinacionPanel.AddItem(clashNavButton);
+
+        var clashClearButton = new PushButtonData(
+            "ClashClearCommand",
+            "Limpiar\nInterferencias",
+            assemblyPath,
+            "Kaiken.ClashClearCommand"
+        )
+        {
+            LargeImage = LoadIcon("interferencias_limpiar_32.png"),
+            ToolTip = "Quita las marcas de Interferencias (el volumen rojo y los colores) de la vista activa, aunque esté renombrada; si la vista activa no tiene marcas, de la vista de interferencias por defecto.",
+        };
+        coordinacionPanel.AddItem(clashClearButton);
+
+        // El rojo de Interferencias vive guardado en la vista: se vuelve a dibujar al abrirla.
+        application.ViewActivated += (sender, e) =>
+        {
+            try
+            {
+                ClashDisplay.Ensure(e.CurrentActiveView);
+                (sender as UIApplication)?.ActiveUIDocument?.RefreshActiveView();
+            }
+            catch { /* nunca bloquear el cambio de vista */ }
+        };
+        application.ControlledApplication.DocumentClosing += (_, e) =>
+        {
+            ClashNavigator.CloseFor(e.Document);
+            ClashDisplay.Forget(e.Document);
+        };
+
         // --- Panel Navegar: buscar rooms (incluidas las de vínculos) ---
         RibbonPanel navegarPanel = application.CreateRibbonPanel(tabName, "Navegar");
 
