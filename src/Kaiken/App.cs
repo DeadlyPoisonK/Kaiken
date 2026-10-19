@@ -325,6 +325,19 @@ public class App : IExternalApplication
         };
         mepPanel.AddItem(connectSprinklersButton);
 
+        var alcButton = new PushButtonData(
+            "AlcCommand",
+            "Alc",
+            assemblyPath,
+            "Kaiken.AlcCommand"
+        )
+        {
+            LargeImage = LoadIcon("alc_32.png"),
+            ToolTip = "Alcantarillado: elige las bajantes (tuberías verticales) y luego la troncal. Arma por cada una la ruta bajante → codo → diagonal → codo → horizontal con 1 % de pendiente → Te/Tap en la troncal, " +
+                      "para ajustarla después en 3D. Prefiere codos de 45°; si no caben, prueba otros ángulos. Ajusta el largo de la bajante. Ctrl+Z deshace todo.",
+        };
+        mepPanel.AddItem(alcButton);
+
         // --- Panel Coordinación: interferencias ---
         RibbonPanel coordinacionPanel = application.CreateRibbonPanel(tabName, "Coordinación");
 
