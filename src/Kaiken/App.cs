@@ -509,6 +509,34 @@ public class App : IExternalApplication
         alignSplit.AddPushButton(alignViewportsButton);
         alignSplit.AddPushButton(saveLayoutButton);
 
+        // --- Panel Ventanas: guardar/restaurar las vistas abiertas ---
+        RibbonPanel ventanasPanel = application.CreateRibbonPanel(tabName, "Ventanas");
+        var saveViewsButton = new PushButtonData(
+            "SaveViewsCommand",
+            "Guardar\nVistas",
+            assemblyPath,
+            "Kaiken.SaveViewsCommand"
+        )
+        {
+            LargeImage = LoadIcon("guardar_vistas_32.png"),
+            ToolTip = "Guarda las vistas abiertas del modelo con su zoom, cuál está activa y dónde está cada ventana, " +
+                      "incluidas las vistas arrastradas a otros monitores (un estado por modelo). No modifica el modelo.",
+        };
+        ventanasPanel.AddItem(saveViewsButton);
+
+        var restoreViewsButton = new PushButtonData(
+            "RestoreViewsCommand",
+            "Restaurar\nVistas",
+            assemblyPath,
+            "Kaiken.RestoreViewsCommand"
+        )
+        {
+            LargeImage = LoadIcon("restaurar_vistas_32.png"),
+            ToolTip = "Reabre las vistas guardadas con Guardar Vistas, devuelve cada ventana a su lugar (también las flotantes en otros monitores), " +
+                      "restaura su zoom y deja activa la que lo estaba. Si el monitor de una ventana ya no está conectado, esa ventana queda donde Revit la abra.",
+        };
+        ventanasPanel.AddItem(restoreViewsButton);
+
         // Puente en vivo: socket TCP local (127.0.0.1) + ExternalEvent, para que Claude
         // pueda leer y editar el modelo mientras Revit está abierto. Apagado por defecto;
         // se activa con "liveBridge": { "enabled": true } en %APPDATA%\Kaiken\settings.json.
