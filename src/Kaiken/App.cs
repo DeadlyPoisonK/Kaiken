@@ -12,6 +12,7 @@ namespace Kaiken;
 /// </summary>
 public class App : IExternalApplication
 {
+    internal static App? Instance { get; private set; }
     private LiveBridgeServer? _liveBridgeServer;
     private ExternalEvent? _liveBridgeEvent;
 
@@ -23,12 +24,13 @@ public class App : IExternalApplication
 
     public Result OnStartup(UIControlledApplication application)
     {
+        Instance = this;
         const string tabName = "Kaiken";
         application.CreateRibbonTab(tabName);
 
         string assemblyPath = Assembly.GetExecutingAssembly().Location;
 
-        // --- Marca: ícono de Kaiken al inicio de la cinta (no es un comando, solo identidad visual) ---
+        // --- Marca: ícono de Kaiken al inicio de la cinta; con clic prueba la conexión del puente en vivo ---
         RibbonPanel brandPanel = application.CreateRibbonPanel(tabName, "Kaiken");
 
         var brandButtonData = new PushButtonData(
@@ -39,11 +41,10 @@ public class App : IExternalApplication
         )
         {
             LargeImage = LoadIcon("kaiken_32.png"),
-            ToolTip    = "Kaiken",
+            ToolTip    = "Kaiken. Clic para probar la conexión con el puente en vivo.",
         };
 
-        PushButton brandButton = (PushButton)brandPanel.AddItem(brandButtonData);
-        brandButton.Enabled = false;
+        brandPanel.AddItem(brandButtonData);
 
         RibbonPanel panel = application.CreateRibbonPanel(tabName, "Exportar");
 
@@ -428,23 +429,46 @@ public class App : IExternalApplication
         // a la vez) el puente queda desactivado en esta instancia, pero la cinta sigue
         // funcionando: una excepción aquí haría que Revit descarte todo el add-in.
         var bridgeSettings = KaikenSettings.Current.LiveBridge;
+        BridgeLog($"arranque: enabled={bridgeSettings.Enabled} puerto={bridgeSettings.Port}");
         if (bridgeSettings.Enabled)
         {
-            try
-            {
-                var liveBridgeHandler = new LiveBridgeEventHandler();
-                _liveBridgeEvent = ExternalEvent.Create(liveBridgeHandler);
-                _liveBridgeServer = new LiveBridgeServer(_liveBridgeEvent, liveBridgeHandler, bridgeSettings.Port);
-                _liveBridgeServer.Start();
-            }
-            catch (Exception ex)
-            {
-                _liveBridgeServer = null;
-                System.Diagnostics.Debug.WriteLine($"Kaiken: puente en vivo desactivado ({ex.Message})");
-            }
+            string? error = StartBridge(bridgeSettings.Port);
+            if (error == null) BridgeLog($"puente escuchando en 127.0.0.1:{bridgeSettings.Port}");
+            else BridgeLog($"puerto {bridgeSettings.Port}: {error}");
         }
 
         return Result.Succeeded;
+    }
+
+    /// <summary>Arranca el puente en vivo. Devuelve null si quedó escuchando o el error si falló. Requiere contexto de la API de Revit.</summary>
+    internal string? StartBridge(int port)
+    {
+        if (_liveBridgeServer != null) return null;
+        try
+        {
+            var handler = new LiveBridgeEventHandler();
+            _liveBridgeEvent = ExternalEvent.Create(handler);
+            _liveBridgeServer = new LiveBridgeServer(_liveBridgeEvent, handler, port);
+            _liveBridgeServer.Start();
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _liveBridgeServer = null;
+            System.Diagnostics.Debug.WriteLine($"Kaiken: puente en vivo desactivado ({ex.Message})");
+            return ex.ToString();
+        }
+    }
+
+    internal static void BridgeLog(string line)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(KaikenSettings.FolderPath);
+            System.IO.File.AppendAllText(System.IO.Path.Combine(KaikenSettings.FolderPath, "bridge.log"),
+                $"{DateTime.Now:s} {line}{Environment.NewLine}");
+        }
+        catch { /* el log es solo diagnóstico */ }
     }
 
     public Result OnShutdown(UIControlledApplication application)

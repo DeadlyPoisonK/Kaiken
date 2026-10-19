@@ -55,8 +55,14 @@ public sealed class KaikenSettings
             File.WriteAllText(FilePath, JsonSerializer.Serialize(defaults, JsonOptions));
             return defaults;
         }
-        catch
+        catch (Exception ex)
         {
+            try
+            {
+                File.AppendAllText(Path.Combine(FolderPath, "settings-error.log"),
+                    $"{DateTime.Now:s} no se pudo leer settings.json, se usan los valores por defecto: {ex}{Environment.NewLine}");
+            }
+            catch { /* el log es solo diagnóstico */ }
             return new KaikenSettings();
         }
     }
