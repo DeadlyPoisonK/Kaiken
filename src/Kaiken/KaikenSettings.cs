@@ -20,6 +20,7 @@ public sealed class KaikenSettings
     public LiveBridgeSettings LiveBridge { get; set; } = new();
     public RevisionSettings Revisions { get; set; } = new();
     public IfcBatchSettings IfcBatch { get; set; } = new();
+    public DevModeSettings DevMode { get; set; } = new();
 
     public static string FolderPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Kaiken");
@@ -76,6 +77,16 @@ public sealed class LiveBridgeSettings
     /// </summary>
     public bool Enabled { get; set; } = false;
     public int Port { get; set; } = 5551;
+}
+
+public sealed class DevModeSettings
+{
+    /// <summary>
+    /// Modo desarrollo (ver DevMode.cs): botón Dev en la cinta, panel acoplable "Kaiken Dev" y
+    /// operaciones dev_* del puente en vivo, para probar builds de prueba sin reiniciar Revit.
+    /// Apagado por defecto. El botón y el panel solo aparecen si estaba activado al abrir Revit.
+    /// </summary>
+    public bool Enabled { get; set; } = false;
 }
 
 public sealed class RevisionSettings

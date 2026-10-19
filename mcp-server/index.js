@@ -19,6 +19,7 @@
 //   - revit_suggest_tee_rise
 //   - revit_fix_branch_tee_up
 //   - revit_reconnect_branch
+//   - build_dev_addin, revit_dev_list, revit_dev_invoke, revit_dev_show_panel (modo desarrollo)
 //
 // No abre ningún puerto de red: MCP por stdio corre como subproceso local,
 // invocado únicamente por la app de Claude en esta misma máquina.
@@ -515,6 +516,82 @@ server.tool(
   async ({ orphanPipeId, stubElementId }) => {
     try {
       const raw = await callLiveBridge("reconnect_orphan_to_stub", { orphanPipeId, stubElementId });
+      return { content: [{ type: "text", text: raw }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: err.message }], isError: true };
+    }
+  }
+);
+
+// --- Modo desarrollo: builds de prueba que se cargan sin reiniciar Revit (ver DevMode.cs) ---
+// Requiere "devMode": { "enabled": true } (y el puente en vivo activo) en %APPDATA%\Kaiken\settings.json.
+
+const DEV_TIMEOUT_MS = 5 * 60 * 1000 + 5000; // el add-in espera hasta 5 min las operaciones dev_*
+
+server.tool(
+  "build_dev_addin",
+  "Modo desarrollo: compila un build de prueba de Kaiken (tools\\dev-build.ps1) con nombre de assembly único KaikenDev_<hora>, incluida la carpeta src\\Kaiken\\Dev\\, y lo deja en %APPDATA%\\Kaiken\\dev\\<versión>\\. Revit puede seguir abierto: el botón Dev y las herramientas revit_dev_* toman el más reciente sin reiniciar.",
+  { revitVersion: z.string().regex(/^\d{4}$/).default("2025").describe("Versión de Revit abierta, ej. '2025' o '2026'") },
+  async ({ revitVersion }) => {
+    const script = path.join(PROJECT_DIR, "tools", "dev-build.ps1");
+    try {
+      const { stdout, stderr } = await execAsync(
+        `powershell -NoProfile -ExecutionPolicy Bypass -File "${script}" -RevitVersion ${revitVersion}`,
+        { cwd: PROJECT_DIR, timeout: 180000 }
+      );
+      return { content: [{ type: "text", text: `${stdout}${stderr ? "\n--STDERR--\n" + stderr : ""}` }] };
+    } catch (err) {
+      return {
+        content: [{ type: "text", text: `Build dev falló.\n${err.stdout || ""}\n${err.stderr || err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "revit_dev_list",
+  "Modo desarrollo: carga en Revit el build de prueba más reciente y lista sus comandos (IExternalCommand), paneles (FrameworkElement para el panel acoplable Kaiken Dev) y los métodos estáticos de la carpeta src\\Kaiken\\Dev\\ que revit_dev_invoke puede llamar.",
+  {},
+  async () => {
+    try {
+      const raw = await callLiveBridge("dev_list", {}, DEV_TIMEOUT_MS);
+      return { content: [{ type: "text", text: raw }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: err.message }], isError: true };
+    }
+  }
+);
+
+server.tool(
+  "revit_dev_invoke",
+  "Modo desarrollo: ejecuta código del build de prueba más reciente dentro de Revit (hilo de la API, puede abrir transacciones). 'method' = método estático público 'Tipo.Metodo' (parámetros UIApplication, UIDocument, Document y/o JsonElement, que recibe 'args'; lo que devuelve vuelve como JSON), o 'command' = un IExternalCommand. Sirve para leer lo que el puente todavía no expone (ej. DevSamples.ViewportPositions) sin reinstalar Kaiken. Compila antes con build_dev_addin.",
+  {
+    method: z.string().optional().describe("Método estático 'Tipo.Metodo', ej. 'DevSamples.ViewportPositions'"),
+    command: z.string().optional().describe("IExternalCommand a ejecutar, ej. 'Kaiken.Dev.DevSampleCommand'"),
+    args: z.record(z.any()).optional().describe("Argumentos JSON para el método (su parámetro JsonElement)"),
+  },
+  async ({ method, command, args }) => {
+    try {
+      const raw = await callLiveBridge("dev_invoke", {
+        ...(method ? { method } : {}),
+        ...(command ? { command } : {}),
+        ...(args ? { args } : {}),
+      }, DEV_TIMEOUT_MS);
+      return { content: [{ type: "text", text: raw }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: err.message }], isError: true };
+    }
+  }
+);
+
+server.tool(
+  "revit_dev_show_panel",
+  "Modo desarrollo: muestra en el panel acoplable 'Kaiken Dev' de Revit una instancia nueva de un FrameworkElement (UserControl, no Window) del build de prueba más reciente, reemplazando el contenido anterior (si este implementa IDisposable, se le llama Dispose).",
+  { type: z.string().describe("Tipo a mostrar, ej. 'Kaiken.Dev.DevSamplePanel'") },
+  async ({ type }) => {
+    try {
+      const raw = await callLiveBridge("dev_show_panel", { type }, DEV_TIMEOUT_MS);
       return { content: [{ type: "text", text: raw }] };
     } catch (err) {
       return { content: [{ type: "text", text: err.message }], isError: true };

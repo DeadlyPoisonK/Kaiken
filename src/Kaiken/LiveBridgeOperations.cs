@@ -24,6 +24,10 @@ public static class LiveBridgeOperations
     {
         "test_reopen",
         "get_export_info_all",
+        // Modo desarrollo: el código de prueba decide si necesita documento.
+        "dev_list",
+        "dev_invoke",
+        "dev_show_panel",
     };
 
     public static string Dispatch(UIApplication app, string operation, JsonElement args)
@@ -56,6 +60,9 @@ public static class LiveBridgeOperations
             "family_create_conduit_run" => LiveBridgeFamilyOperations.CreateConduitRun(doc!, args),
             "family_create_box" => LiveBridgeFamilyOperations.CreateBox(doc!, args),
             "family_delete_elements" => LiveBridgeFamilyOperations.DeleteElements(doc!, args),
+            "dev_list" => DevList(app),
+            "dev_invoke" => DevInvoke(app, args),
+            "dev_show_panel" => DevShowPanel(app, args),
             _ => JsonSerializer.Serialize(new { error = $"Operación desconocida: '{operation}'" }),
         };
     }
@@ -75,6 +82,23 @@ public static class LiveBridgeOperations
             types
         });
     }
+
+    // --- Modo desarrollo (DevMode.cs): solo responden con "devMode": { "enabled": true } ---
+    // Excepción deliberada a "nada de ejecutar código arbitrario": corre código del build de
+    // prueba en %APPDATA%\Kaiken\dev\, y está apagado por defecto.
+
+    /// <summary>Build de prueba más reciente: sus comandos, paneles y métodos de la carpeta Dev\.</summary>
+    private static string DevList(UIApplication app) => DevMode.Bridge(() => DevMode.List(app));
+
+    /// <summary>
+    /// Ejecuta código del build de prueba: { "method": "Tipo.Metodo", "args": {...} } (estático,
+    /// resultado JSON) o { "command": "Tipo" } (un IExternalCommand con un ExternalCommandData armado
+    /// aquí). Sirve para leer lo que el puente todavía no expone sin reinstalar Kaiken.
+    /// </summary>
+    private static string DevInvoke(UIApplication app, JsonElement args) => DevMode.Bridge(() => DevMode.Invoke(app, args));
+
+    /// <summary>Muestra un FrameworkElement del build de prueba en el panel acoplable Kaiken Dev: { "type": "Tipo" }.</summary>
+    private static string DevShowPanel(UIApplication app, JsonElement args) => DevMode.Bridge(() => DevMode.ShowPanel(app, args));
 
     private static string GetSelection(UIApplication app, Document doc)
     {

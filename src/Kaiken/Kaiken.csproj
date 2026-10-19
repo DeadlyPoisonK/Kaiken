@@ -37,6 +37,15 @@
     </None>
   </ItemGroup>
 
+  <!--
+    Código de prueba del modo desarrollo (carpeta Dev\, ver DevMode.cs): solo entra en los builds
+    de tools\dev-build.ps1, que pasan -p:KaikenDev=true. El add-in instalado no lo lleva.
+  -->
+  <ItemGroup Condition="'$(KaikenDev)' != 'true'">
+    <Compile Remove="Dev\**" />
+    <Page Remove="Dev\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- Íconos de los botones de la cinta, cargados vía pack URI (Resource, no EmbeddedResource) -->
     <Resource Include="Resources\*.png" />

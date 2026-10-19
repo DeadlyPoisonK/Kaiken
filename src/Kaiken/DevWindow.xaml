@@ -1,0 +1,20 @@
+<Window x:Class="Kaiken.DevWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Kaiken Dev" Height="480" Width="560"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip">
+    <DockPanel Margin="12">
+        <TextBlock x:Name="HeaderText" DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+        <TextBox x:Name="FilterBox" DockPanel.Dock="Top" Margin="0,0,0,8" TextChanged="FilterBox_TextChanged"
+                 ToolTip="Filtra por nombre. Enter ejecuta el marcado."/>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="Cancelar" Width="80" Margin="0,0,8,0" IsCancel="True" Click="Cancel_Click"/>
+            <Button Content="Ejecutar" Width="90" IsDefault="True" Click="Run_Click"
+                    ToolTip="Comando: lo ejecuta. Panel: lo muestra en el panel acoplable Kaiken Dev."/>
+        </StackPanel>
+
+        <ListBox x:Name="EntryList" DisplayMemberPath="Label" MouseDoubleClick="EntryList_MouseDoubleClick"/>
+    </DockPanel>
+</Window>

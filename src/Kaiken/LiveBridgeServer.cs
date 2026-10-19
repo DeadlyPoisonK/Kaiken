@@ -91,8 +91,11 @@ public class LiveBridgeServer
                 // test_reopen abre modelos de nube completos por API — puede
                 // tardar varios minutos (visto en vivo: CEC y ATR tardaron
                 // más de 30s solo en abrir). El resto de operaciones son
-                // rápidas, se quedan con el timeout corto de siempre.
-                var timeout = op == "test_reopen" ? TimeSpan.FromMinutes(8) : TimeSpan.FromSeconds(30);
+                // rápidas, se quedan con el timeout corto de siempre. El código de
+                // prueba del modo desarrollo puede abrir diálogos: 5 minutos.
+                var timeout = op == "test_reopen" ? TimeSpan.FromMinutes(8)
+                    : op.StartsWith("dev_") ? TimeSpan.FromMinutes(5)
+                    : TimeSpan.FromSeconds(30);
                 bool completed = pending.Done.Wait(timeout);
                 if (!completed)
                     responseLine = "{\"error\":\"timeout esperando a Revit (¿hay un documento abierto?)\"}";

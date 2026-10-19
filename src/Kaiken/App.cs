@@ -17,9 +17,13 @@ public class App : IExternalApplication
     private LiveBridgeServer? _liveBridgeServer;
     private ExternalEvent? _liveBridgeEvent;
 
-    private static BitmapImage LoadIcon(string fileName)
+    // Nombre real del assembly (no "Kaiken" fijo): los builds del modo desarrollo se llaman
+    // KaikenDev_<hora> y cada uno debe leer sus propios recursos.
+    private static readonly string AssemblyShortName = typeof(App).Assembly.GetName().Name ?? "Kaiken";
+
+    internal static BitmapImage LoadIcon(string fileName)
     {
-        var uri = new Uri($"pack://application:,,,/Kaiken;component/Resources/{fileName}", UriKind.Absolute);
+        var uri = new Uri($"pack://application:,,,/{AssemblyShortName};component/Resources/{fileName}", UriKind.Absolute);
         return new BitmapImage(uri);
     }
 
@@ -536,6 +540,11 @@ public class App : IExternalApplication
                       "restaura su zoom y deja activa la que lo estaba. Si el monitor de una ventana ya no está conectado, esa ventana queda donde Revit la abra.",
         };
         ventanasPanel.AddItem(restoreViewsButton);
+
+        // Modo desarrollo: panel "Dev" al final de la cinta y panel acoplable contenedor, solo si
+        // "devMode": { "enabled": true } en settings.json. Apagado no registra nada.
+        if (KaikenSettings.Current.DevMode.Enabled)
+            DevMode.Setup(application, tabName, assemblyPath);
 
         // Puente en vivo: socket TCP local (127.0.0.1) + ExternalEvent, para que Claude
         // pueda leer y editar el modelo mientras Revit está abierto. Apagado por defecto;
