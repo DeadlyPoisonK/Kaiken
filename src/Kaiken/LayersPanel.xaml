@@ -1,0 +1,286 @@
+<UserControl x:Class="Kaiken.LayersPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource K.Bg}" Foreground="{DynamicResource K.Fg}"
+             FontFamily="Segoe UI" FontSize="12" UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <!--
+      Los colores (K.*) los pone LayersPanel.ApplyTheme según el tema de Revit (Opciones > Interfaz)
+      y los colores de Opciones > Colores (preselección = acento, alerta = avisos). Aquí solo se usan.
+    -->
+    <UserControl.Resources>
+        <FontFamily x:Key="K.Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+        <!-- Botón de ícono plano (barra inferior y filas) -->
+        <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource K.Fg}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FontFamily" Value="{StaticResource K.Icons}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="400"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource K.Hover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource K.Pressed}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="RowButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+        </Style>
+
+        <!-- Filas de la lista: resaltado al pasar y al seleccionar, con la barra de acento a la izquierda -->
+        <Style x:Key="LayerItem" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource K.Fg}"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" Padding="0,1" BorderThickness="0,0,0,1"
+                                BorderBrush="{DynamicResource K.Divider}">
+                            <Grid>
+                                <Rectangle x:Name="Bar" Width="2" HorizontalAlignment="Left" Fill="{DynamicResource K.Accent}" Visibility="Collapsed"/>
+                                <ContentPresenter Margin="4,0,6,0"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource K.Hover}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource K.Selected}"/>
+                                <Setter TargetName="Bar" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Barra de desplazamiento delgada -->
+        <Style x:Key="ThumbStyle" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="Bd" CornerRadius="3" Background="{DynamicResource K.Scroll}"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource K.Muted}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="MinWidth" Value="8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True" Margin="1,2">
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource ThumbStyle}"/>
+                            </Track.Thumb>
+                        </Track>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Menú contextual y tooltips con el tema -->
+        <Style TargetType="ContextMenu">
+            <Setter Property="Foreground" Value="{DynamicResource K.Fg}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{DynamicResource K.Menu}" BorderBrush="{DynamicResource K.Border}" BorderThickness="1"
+                                CornerRadius="4" Padding="3">
+                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="MenuItem">
+            <Setter Property="Foreground" Value="{DynamicResource K.Fg}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="3" Padding="6,4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter ContentSource="Icon" VerticalAlignment="Center" TextElement.FontFamily="{StaticResource K.Icons}"/>
+                                <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource K.Hover}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="Separator">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Rectangle Height="1" Margin="4,3" Fill="{DynamicResource K.Divider}"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ToolTip">
+            <Setter Property="Foreground" Value="{DynamicResource K.Fg}"/>
+            <Setter Property="MaxWidth" Value="320"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="{DynamicResource K.Menu}" BorderBrush="{DynamicResource K.Border}" BorderThickness="1"
+                                CornerRadius="3" Padding="8,5">
+                            <ContentPresenter>
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextWrapping" Value="Wrap"/>
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cuadro para renombrar en la fila -->
+        <Style x:Key="EditBox" TargetType="TextBox">
+            <Setter Property="Foreground" Value="{DynamicResource K.Fg}"/>
+            <Setter Property="Background" Value="{DynamicResource K.Input}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource K.Accent}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource K.Fg}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource K.Accent}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="2,1"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel>
+        <!-- Encabezado: vista activa -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource K.Header}" Padding="8,6">
+            <StackPanel>
+                <TextBlock Text="VISTA ACTIVA" FontSize="10" Foreground="{DynamicResource K.Muted}"/>
+                <TextBlock x:Name="ViewText" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Aviso (plantilla que controla filtros, vista sin capas) -->
+        <Border x:Name="WarningBox" DockPanel.Dock="Top" Visibility="Collapsed" Margin="6,6,6,0" Padding="8,5"
+                Background="{DynamicResource K.AlertBg}" BorderBrush="{DynamicResource K.Alert}" BorderThickness="3,0,0,0" CornerRadius="2">
+            <TextBlock x:Name="WarningText" TextWrapping="Wrap" FontSize="11"/>
+        </Border>
+
+        <!-- Barra inferior -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource K.Header}" BorderBrush="{DynamicResource K.Divider}" BorderThickness="0,1,0,0">
+            <StackPanel>
+                <DockPanel Margin="4,3">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE74D;" Click="Delete_Click"
+                            ToolTip="Borrar la capa marcada (sus elementos quedan sin capa)."/>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE72C;" Click="Refresh_Click"
+                            ToolTip="Actualizar la lista y los conteos."/>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE890;" Click="ShowAll_Click"
+                            ToolTip="Mostrar todas las capas en la vista activa."/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource IconButton}" Content="&#xE710;" Click="Create_Click"
+                                ToolTip="Nueva capa con los elementos seleccionados en Revit (vacía si no hay selección). Escribe el nombre y Enter."/>
+                        <Button Style="{StaticResource IconButton}" Content="&#xE896;" Click="Assign_Click"
+                                ToolTip="Asignar la selección de Revit a la capa marcada (la saca de la que tuviera)."/>
+                        <Button Style="{StaticResource IconButton}" Content="&#xE898;" Click="Remove_Click"
+                                ToolTip="Quitar de su capa los elementos seleccionados en Revit."/>
+                        <Button Style="{StaticResource IconButton}" Content="&#xE8B3;" Click="Select_Click"
+                                ToolTip="Seleccionar en Revit los elementos de la capa marcada que están en la vista activa."/>
+                    </StackPanel>
+                </DockPanel>
+                <TextBlock x:Name="StatusText" FontSize="11" Foreground="{DynamicResource K.Muted}" TextWrapping="Wrap"
+                           Margin="8,0,8,5" Visibility="Collapsed"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Lista de capas -->
+        <Grid>
+            <ListBox x:Name="LayerList" Background="Transparent" BorderThickness="0" Margin="0,4,0,0"
+                     ItemContainerStyle="{StaticResource LayerItem}" KeyDown="LayerList_KeyDown"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Height="26" ContextMenuOpening="Row_ContextMenuOpening" Background="Transparent" Opacity="{Binding RowOpacity}">
+                            <Grid.ContextMenu>
+                                <ContextMenu/>
+                            </Grid.ContextMenu>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Style="{StaticResource RowButton}" Click="Eye_Click" Content="{Binding EyeGlyph}" Opacity="{Binding EyeOpacity}"
+                                    ToolTip="Mostrar u ocultar en la vista activa. Alt+clic: dejar solo esta capa."/>
+                            <Button Grid.Column="1" Style="{StaticResource RowButton}" Click="Color_Click"
+                                    ToolTip="Color en la vista activa: clic para prender o apagar. Para cambiarlo, clic derecho en la fila.">
+                                <Ellipse Width="12" Height="12" StrokeThickness="2" Stroke="{Binding Swatch}" Fill="{Binding SwatchFill}"/>
+                            </Button>
+                            <Button Grid.Column="2" Style="{StaticResource RowButton}" Click="Halftone_Click" ToolTip="Semitono en la vista activa.">
+                                <Grid Width="12" Height="12" Opacity="{Binding HalftoneOpacity}">
+                                    <Ellipse Stroke="{DynamicResource K.Fg}" StrokeThickness="1.4"/>
+                                    <Path Fill="{DynamicResource K.Fg}" Data="M6,0 A6,6 0 0 1 6,12 Z"/>
+                                </Grid>
+                            </Button>
+                            <TextBlock Grid.Column="3" Text="{Binding Name}" VerticalAlignment="Center" Margin="6,0,4,0"
+                                       TextTrimming="CharacterEllipsis" Visibility="{Binding NameVisibility}"
+                                       MouseLeftButtonDown="Name_MouseLeftButtonDown"/>
+                            <TextBox Grid.Column="3" Style="{StaticResource EditBox}" Margin="4,2"
+                                     Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
+                                     Visibility="{Binding EditVisibility}" KeyDown="EditBox_KeyDown" LostFocus="EditBox_LostFocus"
+                                     IsVisibleChanged="EditBox_IsVisibleChanged"/>
+                            <TextBlock Grid.Column="4" Text="{Binding CountText}" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource K.Muted}" ToolTip="Elementos en la capa (todo el modelo)"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <StackPanel x:Name="EmptyPanel" VerticalAlignment="Center" Margin="20" IsHitTestVisible="False">
+                <TextBlock Text="&#xE81E;" FontFamily="{StaticResource K.Icons}" FontSize="28" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource K.Muted}" Margin="0,0,0,8"/>
+                <TextBlock x:Name="EmptyText" TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource K.Muted}"
+                           Text="Sin capas. Selecciona elementos en Revit y pulsa + abajo para crear la primera."/>
+            </StackPanel>
+        </Grid>
+    </DockPanel>
+</UserControl>

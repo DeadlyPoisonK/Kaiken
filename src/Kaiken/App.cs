@@ -513,6 +513,22 @@ public class App : IExternalApplication
         alignSplit.AddPushButton(alignViewportsButton);
         alignSplit.AddPushButton(saveLayoutButton);
 
+        // Capas tipo Photoshop: panel acoplable (se registra aquí) y botón que lo muestra u oculta.
+        LayersPane.Register(application);
+        var layersButton = new PushButtonData(
+            "LayersCommand",
+            "Capas",
+            assemblyPath,
+            "Kaiken.LayersCommand"
+        )
+        {
+            LargeImage = LoadIcon("capas_32.png"),
+            ToolTip = "Muestra u oculta el panel Capas: agrupa a mano los elementos que te importan ahora y préndelos, apágalos, " +
+                      "colorealos o déjalos en semitono con un clic en la vista activa. Cada capa es un filtro de vista sobre el parámetro " +
+                      "Kaiken_Capa (queda en el modelo, se imprime y funciona con plantillas); las etiquetas y textos se guardan en la capa.",
+        };
+        vistasPanel.AddItem(layersButton);
+
         // --- Panel Ventanas: guardar/restaurar las vistas abiertas ---
         RibbonPanel ventanasPanel = application.CreateRibbonPanel(tabName, "Ventanas");
         var saveViewsButton = new PushButtonData(
