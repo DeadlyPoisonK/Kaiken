@@ -52,6 +52,10 @@ public static class LiveBridgeOperations
             "modify_sheet_revision" => ModifySheetRevision(doc!, args),
             "change_sheet_date_and_rev" => ChangeSheetDateAndRev(doc!, args),
             "diagnose_cad_import" => DiagnoseCadImport(doc!, args),
+            "family_inspect" => LiveBridgeFamilyOperations.Inspect(doc!),
+            "family_create_conduit_run" => LiveBridgeFamilyOperations.CreateConduitRun(doc!, args),
+            "family_create_box" => LiveBridgeFamilyOperations.CreateBox(doc!, args),
+            "family_delete_elements" => LiveBridgeFamilyOperations.DeleteElements(doc!, args),
             _ => JsonSerializer.Serialize(new { error = $"Operación desconocida: '{operation}'" }),
         };
     }
