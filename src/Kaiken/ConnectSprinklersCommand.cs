@@ -73,6 +73,7 @@ public class ConnectSprinklersCommand : IExternalCommand
         var connectedIds = new List<ElementId>();
         var notConnectedIds = new List<ElementId>();
         var errors = new List<string>();
+        var lifts = new List<double>();
         int processed = 0;
         int clearedMarks = 0;
         bool cancelled = false;
@@ -92,15 +93,19 @@ public class ConnectSprinklersCommand : IExternalCommand
                     break;
                 }
 
-                var outcome = ConnectOne(doc, id, win.SelectedSystemTypeIds, tolerance, maxDistance, out string detail);
+                var outcome = ConnectOne(doc, id, win.SelectedSystemTypeIds, tolerance, maxDistance, out string detail, out double lift);
                 counts[outcome]++;
-                if (outcome == SprinklerOutcome.Connected) connectedIds.Add(id);
+                if (outcome is SprinklerOutcome.Connected or SprinklerOutcome.ConnectedOpposite)
+                {
+                    connectedIds.Add(id);
+                    if (lift > 1e-6) lifts.Add(lift);
+                }
                 else if (outcome != SprinklerOutcome.AlreadyConnected) notConnectedIds.Add(id);
                 if (outcome == SprinklerOutcome.Failed) errors.Add($"Rociador {id}: {detail}");
 
                 processed++;
                 progress.Report(processed, pending.Count,
-                    $"Conectados: {counts[SprinklerOutcome.Connected]}   ·   Omitidos: {notConnectedIds.Count}");
+                    $"Conectados: {connectedIds.Count}   ·   Omitidos: {notConnectedIds.Count}");
             }
 
             using (var t = new Transaction(doc, "Marcar rociadores sin conectar"))
@@ -125,9 +130,15 @@ public class ConnectSprinklersCommand : IExternalCommand
 
         var lines = new List<string>
         {
-            $"Conectados: {counts[SprinklerOutcome.Connected]}",
+            $"Conectados: {connectedIds.Count}",
             $"Ya estaban conectados (descartados): {counts[SprinklerOutcome.AlreadyConnected]}",
         };
+        if (counts[SprinklerOutcome.ConnectedOpposite] > 0)
+            lines.Add($"  De ellos, con la tubería al lado contrario de su conector (revisar si el tipo " +
+                      $"colgante/montante es el correcto): {counts[SprinklerOutcome.ConnectedOpposite]}");
+        if (lifts.Count > 0)
+            lines.Add($"  De ellos, pegados a la tubería y conectados directo al accesorio, corridos en altura " +
+                      $"hasta {UnitUtils.ConvertFromInternalUnits(lifts.Max(), UnitTypeId.Centimeters):0.#} cm: {lifts.Count}");
         if (counts[SprinklerOutcome.Misaligned] > 0)
             lines.Add($"Desfasados respecto al eje de la tubería: {counts[SprinklerOutcome.Misaligned]}");
         if (counts[SprinklerOutcome.NoPipeAbove] > 0)
@@ -155,9 +166,11 @@ public class ConnectSprinklersCommand : IExternalCommand
 
     /// <summary>Un rociador = una transacción. Si no queda conectado, se deshace completa.</summary>
     private static SprinklerOutcome ConnectOne(
-        Document doc, ElementId id, ISet<ElementId> systemTypeIds, double tolerance, double maxDistance, out string detail)
+        Document doc, ElementId id, ISet<ElementId> systemTypeIds, double tolerance, double maxDistance,
+        out string detail, out double lift)
     {
         detail = "";
+        lift = 0;
         if (doc.GetElement(id) is not FamilyInstance sprinkler)
         {
             detail = "el elemento ya no existe";
@@ -175,7 +188,7 @@ public class ConnectSprinklersCommand : IExternalCommand
         SprinklerOutcome outcome;
         try
         {
-            outcome = ConnectSprinklersHelpers.Connect(doc, sprinkler, systemTypeIds, tolerance, maxDistance, out detail);
+            outcome = ConnectSprinklersHelpers.Connect(doc, sprinkler, systemTypeIds, tolerance, maxDistance, out detail, out lift);
         }
         catch (Exception ex)
         {
@@ -183,7 +196,7 @@ public class ConnectSprinklersCommand : IExternalCommand
             detail = ex.Message;
         }
 
-        if (outcome != SprinklerOutcome.Connected)
+        if (outcome is not (SprinklerOutcome.Connected or SprinklerOutcome.ConnectedOpposite))
         {
             t.RollBack();
             return outcome;
@@ -194,6 +207,6 @@ public class ConnectSprinklersCommand : IExternalCommand
             detail = failures.LastError ?? "Revit rechazó la conexión";
             return SprinklerOutcome.Failed;
         }
-        return SprinklerOutcome.Connected;
+        return outcome;
     }
 }
