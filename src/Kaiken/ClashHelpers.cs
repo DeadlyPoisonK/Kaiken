@@ -87,6 +87,9 @@ internal static class ClashHelpers
         new("Ductos (y sus fittings)", new[] { BuiltInCategory.OST_DuctCurves, BuiltInCategory.OST_DuctFitting, BuiltInCategory.OST_FlexDuctCurves }, false),
         new("Tuberías (y sus fittings)", new[] { BuiltInCategory.OST_PipeCurves, BuiltInCategory.OST_PipeFitting, BuiltInCategory.OST_FlexPipeCurves }, false),
         new("Conduits (y sus fittings)", new[] { BuiltInCategory.OST_Conduit, BuiltInCategory.OST_ConduitFitting }, false),
+        new("Accesorios de ducto y tubería (válvulas, dampers…)", new[] { BuiltInCategory.OST_DuctAccessory, BuiltInCategory.OST_PipeAccessory }, false),
+        new("Equipos (mecánicos, eléctricos, sanitarios)", new[] { BuiltInCategory.OST_MechanicalEquipment, BuiltInCategory.OST_ElectricalEquipment, BuiltInCategory.OST_PlumbingFixtures }, false),
+        new("Terminales (rejillas, rociadores, luminarias)", new[] { BuiltInCategory.OST_DuctTerminal, BuiltInCategory.OST_Sprinklers, BuiltInCategory.OST_LightingFixtures }, false),
     };
 
     /// <summary>Contra qué se revisa (B).</summary>
@@ -106,6 +109,9 @@ internal static class ClashHelpers
         new(BuiltInCategory.OST_FlexDuctCurves,       "Ductos flexibles",       false),
         new(BuiltInCategory.OST_PipeCurves,           "Tuberías",               true),
         new(BuiltInCategory.OST_PipeFitting,          "Fittings de tubería",    true),
+        new(BuiltInCategory.OST_FlexPipeCurves,       "Tuberías flexibles",     false),
+        new(BuiltInCategory.OST_DuctAccessory,        "Accesorios de ducto",    true),
+        new(BuiltInCategory.OST_PipeAccessory,        "Accesorios de tubería",  true),
         new(BuiltInCategory.OST_CableTray,            "Escalerillas",           true),
         new(BuiltInCategory.OST_CableTrayFitting,     "Fittings de escalerilla", true),
         new(BuiltInCategory.OST_Conduit,              "Conduits",               false),
@@ -184,14 +190,6 @@ internal static class ClashHelpers
                     yield return t.OfPoint(new XYZ(x, y, z));
     }
 
-    /// <summary>Caja de los sólidos, agrandada en <paramref name="pad"/> pies (para el prefiltro por caja).</summary>
-    private static Outline OutlineOf(IEnumerable<Solid> solids, double pad)
-    {
-        var (min, max) = Aabb(solids.SelectMany(s => { var (a, b) = Aabb(s); return new[] { a, b }; }));
-        var d = new XYZ(pad, pad, pad);
-        return new Outline(min - d, max + d);
-    }
-
     private static Solid CreateBox(XYZ min, XYZ max)
     {
         var p0 = new XYZ(min.X, min.Y, min.Z);
@@ -206,28 +204,34 @@ internal static class ClashHelpers
         return GeometryCreationUtilities.CreateExtrusionGeometry(new[] { loop }, XYZ.BasisZ, max.Z - min.Z);
     }
 
+    public static List<BoxedSolid> Boxed(IEnumerable<Solid> solids) =>
+        solids.Select(s => { var (min, max) = Aabb(s); return new BoxedSolid(s, min, max); }).ToList();
+
+    private static List<Solid> Intersect(List<Solid> aSolids, List<Solid> bSolids, double tolFt) =>
+        Intersect(Boxed(aSolids), Boxed(bSolids), tolFt);
+
     /// <summary>
-    /// Volúmenes de intersección entre los sólidos de A y de B. Si la operación booleana
-    /// falla (geometría que Revit no logra cortar) se usa la caja común de ambos sólidos,
-    /// para no perder el choque. Se descartan los roces más delgados que la tolerancia.
+    /// Volúmenes de intersección entre los sólidos de A y de B. Antes del cálculo booleano
+    /// (lo caro) se descartan los pares cuyas cajas se cruzan menos que la tolerancia en algún
+    /// eje: el volumen real sería aún menor. Si la operación booleana falla (geometría que
+    /// Revit no logra cortar) se usa la caja común, para no perder el choque.
     /// </summary>
-    private static List<Solid> Intersect(List<Solid> aSolids, List<Solid> bSolids, double tolFt)
+    private static List<Solid> Intersect(List<BoxedSolid> aSolids, List<BoxedSolid> bSolids, double tolFt)
     {
         var pieces = new List<Solid>();
         foreach (var a in aSolids)
         {
-            var (aMin, aMax) = Aabb(a);
             foreach (var b in bSolids)
             {
-                var (bMin, bMax) = Aabb(b);
-                var oMin = new XYZ(Math.Max(aMin.X, bMin.X), Math.Max(aMin.Y, bMin.Y), Math.Max(aMin.Z, bMin.Z));
-                var oMax = new XYZ(Math.Min(aMax.X, bMax.X), Math.Min(aMax.Y, bMax.Y), Math.Min(aMax.Z, bMax.Z));
-                if (oMax.X <= oMin.X || oMax.Y <= oMin.Y || oMax.Z <= oMin.Z) continue;
+                var oMin = new XYZ(Math.Max(a.Min.X, b.Min.X), Math.Max(a.Min.Y, b.Min.Y), Math.Max(a.Min.Z, b.Min.Z));
+                var oMax = new XYZ(Math.Min(a.Max.X, b.Max.X), Math.Min(a.Max.Y, b.Max.Y), Math.Min(a.Max.Z, b.Max.Z));
+                XYZ overlap = oMax - oMin;
+                if (Math.Min(overlap.X, Math.Min(overlap.Y, overlap.Z)) < Math.Max(tolFt, 1e-6)) continue;
 
                 Solid? piece = null;
                 try
                 {
-                    piece = BooleanOperationsUtils.ExecuteBooleanOperation(a, b, BooleanOperationsType.Intersect);
+                    piece = BooleanOperationsUtils.ExecuteBooleanOperation(a.Solid, b.Solid, BooleanOperationsType.Intersect);
                     if (piece == null || piece.Volume < 1e-9) continue;   // solo se tocan
                 }
                 catch
@@ -279,66 +283,39 @@ internal static class ClashHelpers
             .ToList();
 
     /// <summary>
-    /// Busca los choques de un elemento A contra el modelo actual y los vínculos elegidos.
-    /// <paramref name="seenPairs"/> evita contar dos veces un choque entre dos elementos que
-    /// están en ambos grupos (escalerilla contra escalerilla).
+    /// Busca los choques de un elemento A contra el índice de elementos B. Solo calcula la
+    /// geometría de A si su caja toca algún candidato. <paramref name="seenPairs"/> evita contar
+    /// dos veces un choque entre dos elementos que están en ambos grupos (escalerilla contra escalerilla).
     /// </summary>
-    public static List<ClashResult> FindClashes(Document doc, Element a, ClashOptions opts, HashSet<(long, long)> seenPairs)
+    public static List<ClashResult> FindClashes(Element a, ClashIndex index, double tolFt, HashSet<(long, long)> seenPairs)
     {
         var result = new List<ClashResult>();
-        var aSolids = GetSolids(a);
+        BoundingBoxXYZ? bb = a.get_BoundingBox(null);
+        if (bb == null) return result;
+
+        var candidates = index.Query(bb.Min, bb.Max, tolFt);
+        if (candidates.Count == 0) return result;
+
+        var aSolids = Boxed(GetSolids(a));
         if (aSolids.Count == 0) return result;
 
-        double tolFt = opts.ToleranceMm * MmToFeet;
-        var bFilter = new ElementMulticategoryFilter(opts.BCategories);
         string aLabel = Describe(a);
-
-        // ── 1. Modelo actual ────────────────────────────────────────────────────
-        if (opts.IncludeHost)
+        HashSet<ElementId>? connected = null;
+        foreach (var c in candidates)
         {
-            var connected = ConnectedIds(a);
-            var candidates = new FilteredElementCollector(doc)
-                .WherePasses(bFilter)
-                .WhereElementIsNotElementType()
-                .WherePasses(new BoundingBoxIntersectsFilter(OutlineOf(aSolids, 0.01)))
-                .WherePasses(SolidFilter(aSolids));
-
-            foreach (var b in candidates)
+            Element b = c.Element;
+            if (c.LinkId == ElementId.InvalidElementId)
             {
-                if (b.Id == a.Id || connected.Contains(b.Id)) continue;
+                if (b.Id == a.Id) continue;
+                connected ??= ConnectedIds(a);
+                if (connected.Contains(b.Id)) continue;
                 long ia = a.Id.Value, ib = b.Id.Value;
                 if (!seenPairs.Add((Math.Min(ia, ib), Math.Max(ia, ib)))) continue;
-
-                var pieces = Intersect(aSolids, GetSolids(b), tolFt);
-                if (pieces.Count > 0) result.Add(Build(a.Id, aLabel, b, ElementId.InvalidElementId, "Este modelo", pieces));
             }
+
+            var pieces = Intersect(aSolids, c.Solids, tolFt);
+            if (pieces.Count > 0) result.Add(Build(a.Id, aLabel, b, c.LinkId, c.Source, pieces));
         }
-
-        // ── 2. Vínculos: A se lleva al espacio del vínculo y el resultado vuelve ─
-        foreach (var link in opts.Links)
-        {
-            Document? linkDoc = link.GetLinkDocument();
-            if (linkDoc == null) continue;
-
-            Transform toHost = link.GetTotalTransform();
-            Transform toLink = toHost.Inverse;
-            var aLocal = aSolids.Select(s => SolidUtils.CreateTransformed(s, toLink)).ToList();
-
-            var candidates = new FilteredElementCollector(linkDoc)
-                .WherePasses(bFilter)
-                .WhereElementIsNotElementType()
-                .WherePasses(new BoundingBoxIntersectsFilter(OutlineOf(aLocal, 0.01)))
-                .WherePasses(SolidFilter(aLocal));
-
-            foreach (var b in candidates)
-            {
-                var pieces = Intersect(aLocal, GetSolids(b), tolFt)
-                    .Select(p => SolidUtils.CreateTransformed(p, toHost))
-                    .ToList();
-                if (pieces.Count > 0) result.Add(Build(a.Id, aLabel, b, link.Id, linkDoc.Title, pieces));
-            }
-        }
-
         return result;
     }
 
@@ -370,11 +347,6 @@ internal static class ClashHelpers
 
     public static (XYZ min, XYZ max) Aabb(IEnumerable<Solid> solids) =>
         Aabb(solids.SelectMany(p => { var (lo, hi) = Aabb(p); return new[] { lo, hi }; }));
-
-    private static ElementFilter SolidFilter(List<Solid> solids) =>
-        solids.Count == 1
-            ? new ElementIntersectsSolidFilter(solids[0])
-            : new LogicalOrFilter(solids.Select(s => (ElementFilter)new ElementIntersectsSolidFilter(s)).ToList());
 
     private static ClashResult Build(ElementId aId, string aLabel, Element b, ElementId linkId, string source, List<Solid> pieces)
     {

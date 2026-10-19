@@ -47,15 +47,24 @@ public class ClashMarkerCommand : IExternalCommand
 
         var progress = new ClashProgressWindow(aElements.Count);
         progress.Show();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         try
         {
+            // Una sola pasada por las cajas de todo lo que puede chocar (modelo + vínculos).
+            ClashIndex index = ClashIndex.Build(doc, opts, progress.SetStatus);
+            double tolFt = opts.ToleranceMm * ClashHelpers.MmToFeet;
+
+            long lastReport = -1000;
             for (int i = 0; i < aElements.Count; i++)
             {
                 if (progress.CancelRequested) { cancelled = true; break; }
-                try { clashes.AddRange(ClashHelpers.FindClashes(doc, aElements[i], opts, seenPairs)); }
+                try { clashes.AddRange(ClashHelpers.FindClashes(aElements[i], index, tolFt, seenPairs)); }
                 catch { failed++; }
-                if (i % 5 == 0 || i == aElements.Count - 1)
+                if (clock.ElapsedMilliseconds - lastReport > 200 || i == aElements.Count - 1)
+                {
+                    lastReport = clock.ElapsedMilliseconds;
                     progress.Report(i + 1, clashes.Count, clashes.Select(c => c.AId).Distinct().Count());
+                }
             }
         }
         finally { progress.Finish(); }
@@ -113,9 +122,13 @@ public class ClashMarkerCommand : IExternalCommand
             new XYZ(clashes.Max(c => c.Max.X), clashes.Max(c => c.Max.Y), clashes.Max(c => c.Max.Z)) + pad);
         uidoc.RefreshActiveView();
 
-        ClashNavigator.Open(commandData.Application, view, warnings);
+        ClashNavigator.Open(commandData.Application, view, warnings,
+            $"Revisado en {FormatTime(clock.Elapsed)} ({aElements.Count} elementos).");
         return Result.Succeeded;
     }
+
+    private static string FormatTime(TimeSpan t) =>
+        t.TotalMinutes >= 1 ? $"{(int)t.TotalMinutes} min {t.Seconds} s" : $"{t.TotalSeconds:0.#} s";
 }
 
 /// <summary>Abre el navegador de la vista activa (si tiene interferencias) o de la vista por defecto.</summary>
@@ -219,6 +232,12 @@ internal sealed class ClashProgressWindow : Window
         panel.Children.Add(_bar);
         panel.Children.Add(_cancel);
         Content = panel;
+    }
+
+    public void SetStatus(string text)
+    {
+        _status.Text = text;
+        Dispatcher.Invoke(DispatcherPriority.Background, new Action(() => { }));
     }
 
     public void Report(int done, int clashes, int elements)

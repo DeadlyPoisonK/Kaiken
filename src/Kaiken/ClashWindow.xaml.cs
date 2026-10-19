@@ -80,6 +80,9 @@ public partial class ClashWindow : Window
         return box;
     }
 
+    private void AllA_Click(object sender, RoutedEventArgs e) => _aBoxes.ForEach(b => b.box.IsChecked = true);
+    private void NoA_Click(object sender, RoutedEventArgs e) => _aBoxes.ForEach(b => b.box.IsChecked = false);
+
     private void AllCats_Click(object sender, RoutedEventArgs e) => _bBoxes.ForEach(b => b.box.IsChecked = true);
     private void NoCats_Click(object sender, RoutedEventArgs e) => _bBoxes.ForEach(b => b.box.IsChecked = false);
 

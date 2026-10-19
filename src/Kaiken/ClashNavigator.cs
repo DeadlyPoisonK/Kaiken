@@ -23,7 +23,7 @@ internal static class ClashNavigator
     private static ClashNavigatorWindow? _window;
 
     /// <summary>Abre el navegador para la vista. Requiere contexto de la API (se llama desde un comando).</summary>
-    public static void Open(UIApplication uiapp, View3D view, IList<string>? warnings = null)
+    public static void Open(UIApplication uiapp, View3D view, IList<string>? warnings = null, string? note = null)
     {
         _event ??= ExternalEvent.Create(EventHandler);
         ClashData? data = ClashStorage.Read(view);
@@ -42,7 +42,7 @@ internal static class ClashNavigator
             Run(app => { if (Resolve(app, win, quiet: true) is (_, View3D v)) ClashDisplay.SetHighlight(v, -1); app.ActiveUIDocument?.RefreshActiveView(); });
         };
         _window = win;
-        win.Load(data, view.Name, 0, warnings);
+        win.Load(data, view.Name, 0, warnings, note);
         win.Show();
     }
 
