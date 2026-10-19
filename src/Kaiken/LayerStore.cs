@@ -11,7 +11,10 @@ namespace Kaiken;
 internal sealed class LayerInfo
 {
     public ElementId FilterId = ElementId.InvalidElementId;
+    public string UniqueId = "";
     public string Name = "";
+    /// <summary>Bloqueada para este usuario (LayerLocks): sus elementos no se pueden seleccionar.</summary>
+    public bool Locked;
     public Color Color = new(255, 0, 0);
     /// <summary>Anotaciones (etiquetas, textos, cotas) de la capa: no admiten el parámetro ni filtros.</summary>
     public List<ElementId> Annotations = new();
@@ -86,6 +89,9 @@ internal static class LayerStore
 
     private static int Pack(Color c) => (c.Red << 16) | (c.Green << 8) | c.Blue;
     private static Color Unpack(int v) => new((byte)(v >> 16), (byte)(v >> 8), (byte)v);
+
+    /// <summary>Capa escrita en el elemento (Kaiken_Capa), o null si no tiene.</summary>
+    public static string? LayerNameOf(Element e) => e.get_Parameter(ParamGuid)?.AsString();
 
     /// <summary>Id del parámetro Kaiken_Capa en el modelo, o null si todavía no existe.</summary>
     public static ElementId? ParamId(Document doc) => SharedParameterElement.Lookup(doc, ParamGuid)?.Id;
@@ -192,6 +198,7 @@ internal static class LayerStore
         return new LayerInfo
         {
             FilterId = f.Id,
+            UniqueId = f.UniqueId,
             Name = DisplayName(f),
             Color = Unpack(e.Get<int>(FColor)),
             Annotations = e.Get<IList<ElementId>>(FAnn).Where(id => doc.GetElement(id) != null).ToList(),
@@ -206,6 +213,8 @@ internal static class LayerStore
         var layers = LayerFilters(doc).Select(f => Read(doc, f, s))
             .OrderBy(l => l.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
+        var locked = LayerLocks.Locked(LayerLocks.DocKey(doc));
+        foreach (var l in layers) l.Locked = locked.Contains(l.UniqueId);
 
         if (counts)
         {

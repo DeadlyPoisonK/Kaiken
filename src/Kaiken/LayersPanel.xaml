@@ -249,6 +249,7 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Button Style="{StaticResource RowButton}" Click="Eye_Click" Content="{Binding EyeGlyph}" Opacity="{Binding EyeOpacity}"
                                     ToolTip="Mostrar u ocultar en la vista activa. Alt+clic: dejar solo esta capa."/>
@@ -269,7 +270,10 @@
                                      Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
                                      Visibility="{Binding EditVisibility}" KeyDown="EditBox_KeyDown" LostFocus="EditBox_LostFocus"
                                      IsVisibleChanged="EditBox_IsVisibleChanged"/>
-                            <TextBlock Grid.Column="4" Text="{Binding CountText}" FontSize="11" VerticalAlignment="Center"
+                            <Button Grid.Column="4" Style="{StaticResource RowButton}" Click="Lock_Click" FontSize="12"
+                                    Content="{Binding LockGlyph}" Opacity="{Binding LockOpacity}"
+                                    ToolTip="Bloquear: los elementos de la capa no se pueden seleccionar (solo para ti; no modifica el modelo)."/>
+                            <TextBlock Grid.Column="5" Text="{Binding CountText}" FontSize="11" VerticalAlignment="Center"
                                        Foreground="{DynamicResource K.Muted}" ToolTip="Elementos en la capa (todo el modelo)"/>
                         </Grid>
                     </DataTemplate>

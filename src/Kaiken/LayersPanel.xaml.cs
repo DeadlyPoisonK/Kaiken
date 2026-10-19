@@ -19,6 +19,7 @@ using WpfVisibility = System.Windows.Visibility;
 using MenuItem = System.Windows.Controls.MenuItem;
 using TextBox = System.Windows.Controls.TextBox;
 using Ellipse = System.Windows.Shapes.Ellipse;
+using SelectionChangedEventArgs = Autodesk.Revit.UI.Events.SelectionChangedEventArgs;
 
 namespace Kaiken;
 
@@ -42,17 +43,24 @@ public partial class LayersPanel : UserControl, IDisposable
     private bool _busy;
     private string? _docKey;
 
+    // Capas bloqueadas del modelo activo (ver LayerLocks): lo que el filtro de selección saca.
+    private string? _lockDocKey;
+    private HashSet<string> _lockedNames = new(StringComparer.Ordinal);
+    private HashSet<ElementId> _lockedAnnotations = new();
+
     /// <summary>Modo desarrollo: corre en contexto de la API, así que ya muestra la vista activa.</summary>
     public LayersPanel(UIApplication app) : this()
     {
         app.ViewActivated += OnViewActivated;
         app.ThemeChanged += OnThemeChanged;
+        app.SelectionChanged += OnSelectionChanged;
         app.Application.DocumentChanged += OnDocumentChanged;
         app.Application.DocumentClosed += OnDocumentClosed;
         _unsubscribe.Add(() =>
         {
             app.ViewActivated -= OnViewActivated;
             app.ThemeChanged -= OnThemeChanged;
+            app.SelectionChanged -= OnSelectionChanged;
             app.Application.DocumentChanged -= OnDocumentChanged;
             app.Application.DocumentClosed -= OnDocumentClosed;
         });
@@ -64,12 +72,14 @@ public partial class LayersPanel : UserControl, IDisposable
     {
         app.ViewActivated += OnViewActivated;
         app.ThemeChanged += OnThemeChanged;
+        app.SelectionChanged += OnSelectionChanged;
         app.ControlledApplication.DocumentChanged += OnDocumentChanged;
         app.ControlledApplication.DocumentClosed += OnDocumentClosed;
         _unsubscribe.Add(() =>
         {
             app.ViewActivated -= OnViewActivated;
             app.ThemeChanged -= OnThemeChanged;
+            app.SelectionChanged -= OnSelectionChanged;
             app.ControlledApplication.DocumentChanged -= OnDocumentChanged;
             app.ControlledApplication.DocumentClosed -= OnDocumentClosed;
         });
@@ -185,6 +195,9 @@ public partial class LayersPanel : UserControl, IDisposable
     private void ShowNoDocument()
     {
         _docKey = null;
+        _lockDocKey = null;
+        _lockedNames.Clear();
+        _lockedAnnotations.Clear();
         _rows.Clear();
         ViewText.Text = "Sin modelo abierto";
         SetWarning(null);
@@ -212,6 +225,10 @@ public partial class LayersPanel : UserControl, IDisposable
         if (!counts)
             foreach (var l in layers)
                 if (oldCounts.TryGetValue(l.FilterId, out int n)) l.Count = n;
+
+        _lockDocKey = LayerLocks.DocKey(doc);
+        _lockedNames = layers.Where(l => l.Locked).Select(l => l.Name).ToHashSet(StringComparer.Ordinal);
+        _lockedAnnotations = layers.Where(l => l.Locked).SelectMany(l => l.Annotations).ToHashSet();
 
         ElementId? selected = Current?.Info.FilterId;
         _rows.Clear();
@@ -347,7 +364,13 @@ public partial class LayersPanel : UserControl, IDisposable
         else if (e.Key == Key.Delete) { Delete(row); e.Handled = true; }
     }
 
-    private void SelectMembers(LayerRow row, bool inView) => Run(app =>
+    private void SelectMembers(LayerRow row, bool inView)
+    {
+        if (row.Info.Locked) { SetStatus($"«{row.Info.Name}» está bloqueada: desbloquéala para seleccionar sus elementos."); return; }
+        SelectMembersNow(row, inView);
+    }
+
+    private void SelectMembersNow(LayerRow row, bool inView) => Run(app =>
     {
         UIDocument? uidoc = app.ActiveUIDocument;
         if (uidoc == null) return;
@@ -423,6 +446,68 @@ public partial class LayersPanel : UserControl, IDisposable
         Transact("Borrar capa", uidoc => Report($"Capa «{row.Info.Name}» borrada; sin capa", LayerStore.Delete(uidoc.Document, row.Info.FilterId)));
     }
 
+    // ── Bloqueo: los elementos de capas bloqueadas no se pueden seleccionar ────
+
+    private void Lock_Click(object sender, RoutedEventArgs e)
+    {
+        if (RowOf(sender) is { } row) ToggleLock(row);
+    }
+
+    private void ToggleLock(LayerRow row)
+    {
+        if (_lockDocKey == null) return;
+        bool locked = !row.Info.Locked;
+        try { LayerLocks.Set(_lockDocKey, row.Info.UniqueId, locked); }
+        catch (Exception ex) { TaskDialog.Show(Title, $"No se pudo guardar el bloqueo: {ex.Message}"); return; }
+        Run(app =>
+        {
+            SafeRefresh(app, counts: false);
+            int removed = locked ? DropLockedFromSelection(app) : 0;
+            SetStatus(locked
+                ? $"«{row.Info.Name}» bloqueada: sus elementos ya no se pueden seleccionar" + (removed > 0 ? $" ({removed} quitados de la selección)." : ".")
+                : $"«{row.Info.Name}» desbloqueada.");
+        });
+    }
+
+    private bool IsLocked(Document doc, ElementId id)
+    {
+        if (_lockedAnnotations.Contains(id)) return true;
+        return _lockedNames.Count > 0 && doc.GetElement(id) is { } el && LayerStore.LayerNameOf(el) is { } name && _lockedNames.Contains(name);
+    }
+
+    /// <summary>
+    /// Revit no deja cambiar la selección dentro de este evento: si entró algo bloqueado, se saca
+    /// con el ExternalEvent apenas Revit quede libre (la selección parpadea un instante).
+    /// </summary>
+    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_lockedNames.Count == 0 && _lockedAnnotations.Count == 0) return;
+        try
+        {
+            Document doc = e.GetDocument();
+            if (LayerLocks.DocKey(doc) != _lockDocKey) return;
+            if (!e.GetSelectedElements().Any(id => IsLocked(doc, id))) return;
+            Run(app =>
+            {
+                int removed = DropLockedFromSelection(app);
+                if (removed > 0) SetStatus($"{removed} elemento(s) de capas bloqueadas quedaron fuera de la selección.");
+            });
+        }
+        catch (Exception ex) { App.BridgeLog($"capas: filtro de selección: {ex.Message}"); }
+    }
+
+    /// <summary>Saca de la selección actual lo que es de capas bloqueadas. Devuelve cuántos sacó.</summary>
+    private int DropLockedFromSelection(UIApplication app)
+    {
+        UIDocument? uidoc = app.ActiveUIDocument;
+        if (uidoc == null) return 0;
+        var current = uidoc.Selection.GetElementIds();
+        var keep = current.Where(id => !IsLocked(uidoc.Document, id)).ToList();
+        if (keep.Count == current.Count) return 0;
+        uidoc.Selection.SetElementIds(keep);
+        return current.Count - keep.Count;
+    }
+
     // ── Renombrar en la fila (doble clic en el nombre o F2) ────────────────────
 
     private void Name_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -477,6 +562,7 @@ public partial class LayersPanel : UserControl, IDisposable
 
         menu.Items.Add(Item("", "Seleccionar en la vista", () => SelectMembers(row, inView: true)));
         menu.Items.Add(Item("", "Seleccionar en todo el modelo", () => SelectMembers(row, inView: false)));
+        menu.Items.Add(Item(row.Info.Locked ? "" : "", row.Info.Locked ? "Desbloquear" : "Bloquear (no seleccionable)", () => ToggleLock(row)));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("", "Solo esta capa", () => ApplyState("Solo esta capa", _rows.ToList(), (l, r) => l.Visible = r == row)));
         menu.Items.Add(Item("", "Mostrar todas", () => ApplyState("Mostrar todas", _rows.ToList(), (l, _) => l.Visible = true)));
@@ -564,6 +650,8 @@ public sealed class LayerRow : INotifyPropertyChanged
     public Brush Swatch => new SolidColorBrush(WpfColor.FromRgb(Info.Color.Red, Info.Color.Green, Info.Color.Blue));
     public Brush SwatchFill => Info.ColorOn ? Swatch : Brushes.Transparent;
     public double HalftoneOpacity => Info.Halftone ? 1.0 : 0.3;
+    public string LockGlyph => Info.Locked ? "\uE72E" : "\uE785";
+    public double LockOpacity => Info.Locked ? 1.0 : 0.25;
     /// <summary>Capa apagada: la fila entera queda tenue, como en Photoshop.</summary>
     public double RowOpacity => Info.Visible ? 1.0 : 0.55;
 
