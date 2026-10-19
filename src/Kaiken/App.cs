@@ -464,6 +464,22 @@ public class App : IExternalApplication
         };
         revisionesPanel.AddItem(manageSetRevisionsButton);
 
+        // --- Panel Vistas: crear varias dependientes de una vez ---
+        RibbonPanel vistasPanel = application.CreateRibbonPanel(tabName, "Vistas");
+        var dependentViewsButton = new PushButtonData(
+            "DependentViewsCommand",
+            "Crear\nDependientes",
+            assemblyPath,
+            "Kaiken.DependentViewsCommand"
+        )
+        {
+            LargeImage = LoadIcon("dependientes_32.png"),
+            ToolTip = "Crea de una sola vez varias vistas dependientes de la vista principal (la marcada en el Project Browser o la activa), sin abrirlas. " +
+                      "Los nombres se escriben, se generan (\"<vista> - Dependent N\") o se copian de otras vistas del mismo tipo; si una vista ya usa el nombre, " +
+                      "se renombra con \" (antigua)\", se elimina o se omite, a elección. Un Ctrl+Z deshace todo.",
+        };
+        vistasPanel.AddItem(dependentViewsButton);
+
         // Puente en vivo: socket TCP local (127.0.0.1) + ExternalEvent, para que Claude
         // pueda leer y editar el modelo mientras Revit está abierto. Apagado por defecto;
         // se activa con "liveBridge": { "enabled": true } en %APPDATA%\Kaiken\settings.json.

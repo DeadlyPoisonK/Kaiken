@@ -1,0 +1,98 @@
+<Window x:Class="Kaiken.DependentViewsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Crear Dependientes" Height="560" Width="760" MinHeight="420" MinWidth="620"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Vista principal:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox Grid.Column="1" x:Name="ParentCombo" DisplayMemberPath="Label" SelectionChanged="ParentCombo_SelectionChanged"/>
+        </Grid>
+        <TextBlock Grid.Row="1" x:Name="ParentInfoText" Foreground="Gray" Margin="0,0,0,10"/>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Izquierda: tomar nombres de otras vistas del mismo tipo -->
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top" Text="Tomar nombres de otras vistas" FontWeight="Bold" Margin="0,0,0,4"/>
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Buscar:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox Grid.Column="1" x:Name="FilterBox" TextChanged="FilterBox_TextChanged"/>
+                </Grid>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0">
+                    <Button Content="Marcar visibles" Width="100" Margin="0,0,6,0" Click="CheckVisible_Click"/>
+                    <Button Content="Desmarcar" Width="80" Click="UncheckAll_Click"/>
+                </StackPanel>
+                <Border BorderBrush="#CCCCCC" BorderThickness="1">
+                    <ListBox x:Name="SourceList" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked}" Margin="2"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </DockPanel>
+
+            <Button Grid.Column="1" Content="Agregar →" Width="84" Margin="10,0" VerticalAlignment="Center"
+                    Click="AddChecked_Click" ToolTip="Agrega a la lista los nombres de las vistas marcadas"/>
+
+            <!-- Derecha: lista final de nombres -->
+            <DockPanel Grid.Column="2">
+                <TextBlock DockPanel.Dock="Top" Text="Dependientes a crear (un nombre por línea)" FontWeight="Bold" Margin="0,0,0,4"/>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0">
+                    <TextBlock Text="Agregar" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox x:Name="CountBox" Width="40" Text="1" VerticalContentAlignment="Center"/>
+                    <Button Content="con nombre automático" Margin="6,0,0,0" Padding="8,0" Click="AddAuto_Click"/>
+                    <Button Content="Limpiar" Width="70" Margin="6,0,0,0" Click="ClearNames_Click"/>
+                </StackPanel>
+                <TextBox x:Name="NamesBox" AcceptsReturn="True" TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Consolas" TextChanged="NamesBox_TextChanged"/>
+            </DockPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="3" Margin="0,12,0,0">
+            <TextBlock Text="Si el nombre ya lo usa otra vista:" FontWeight="Bold" Margin="0,0,0,4"/>
+            <RadioButton x:Name="RenameRadio" GroupName="Conflict" IsChecked="True" Margin="0,2"
+                         Content="Renombrar la vista existente (le agrega &quot; (antigua)&quot;) y la dependiente toma el nombre"/>
+            <RadioButton x:Name="DeleteRadio" GroupName="Conflict" Margin="0,2"
+                         Content="Eliminar la vista existente y la dependiente toma el nombre"/>
+            <RadioButton x:Name="SkipRadio" GroupName="Conflict" Margin="0,2"
+                         Content="No crear esa dependiente"/>
+        </StackPanel>
+
+        <Grid Grid.Row="4" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusText" Foreground="Gray" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="Cancelar" Width="80" Margin="0,0,8,0" IsCancel="True"/>
+                <Button x:Name="CreateButton" Content="Crear" MinWidth="90" Padding="8,0" IsDefault="True" Click="Create_Click"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
