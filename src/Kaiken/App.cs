@@ -480,6 +480,35 @@ public class App : IExternalApplication
         };
         vistasPanel.AddItem(dependentViewsButton);
 
+        // Alinear / Guardar Alineación en un botón dividido: abajo se elige el otro.
+        var alignViewportsButton = new PushButtonData(
+            "AlignViewportsCommand",
+            "Alinear\nViewports",
+            assemblyPath,
+            "Kaiken.AlignViewportsCommand"
+        )
+        {
+            LargeImage = LoadIcon("alinear_viewports_32.png"),
+            ToolTip = "Aplica una alineación guardada (archivo .json de Guardar Alineación) a las láminas de este modelo. Cada lámina cuyo sector " +
+                      "(última palabra del nombre, ej. A1) esté en el archivo toma el scope box guardado y su viewport queda exactamente en el mismo lugar del papel. " +
+                      "Además queda con viewport \"Sin título\", recorte oculto y annotation crop marcado. Un Ctrl+Z deshace todo.",
+        };
+        var saveLayoutButton = new PushButtonData(
+            "SaveViewportLayoutCommand",
+            "Guardar\nAlineación",
+            assemblyPath,
+            "Kaiken.SaveViewportLayoutCommand"
+        )
+        {
+            LargeImage = LoadIcon("guardar_alineacion_32.png"),
+            ToolTip = "Marca en el Project Browser las láminas ya alineadas (una por sector) y guarda en un .json, por sector, su scope box y dónde queda el viewport en el papel, " +
+                      "para aplicarlo con Alinear Viewports en cualquier modelo. Si el archivo ya existe se combina. No modifica el modelo.",
+        };
+        var alignSplit = (SplitButton)vistasPanel.AddItem(new SplitButtonData("AlignViewportsSplit", "Alinear Viewports"));
+        alignSplit.IsSynchronizedWithCurrentItem = false;
+        alignSplit.AddPushButton(alignViewportsButton);
+        alignSplit.AddPushButton(saveLayoutButton);
+
         // Puente en vivo: socket TCP local (127.0.0.1) + ExternalEvent, para que Claude
         // pueda leer y editar el modelo mientras Revit está abierto. Apagado por defecto;
         // se activa con "liveBridge": { "enabled": true } en %APPDATA%\Kaiken\settings.json.
