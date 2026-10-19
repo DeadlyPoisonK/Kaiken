@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Windows.Media.Imaging;
 using Autodesk.Revit.UI;
@@ -20,6 +21,30 @@ public class App : IExternalApplication
     {
         var uri = new Uri($"pack://application:,,,/Kaiken;component/Resources/{fileName}", UriKind.Absolute);
         return new BitmapImage(uri);
+    }
+
+    /// <summary>
+    /// Deja un panel de la cinta siempre colapsado, vía AdWindows (la API de Revit no lo ofrece).
+    /// Si algo falla el panel queda normal: nunca debe tumbar la carga del add-in.
+    /// </summary>
+    private static void CollapsePanel(string tabName, string panelTitle, string iconFile)
+    {
+        try
+        {
+            var tab = Autodesk.Windows.ComponentManager.Ribbon?.FindTab(tabName);
+            var adPanel = tab?.Panels.FirstOrDefault(p => p.Source?.Title == panelTitle);
+            if (adPanel == null)
+            {
+                BridgeLog($"cinta: no se encontró el panel {panelTitle} para colapsarlo");
+                return;
+            }
+            adPanel.CollapsedPanelImage = LoadIcon(iconFile);
+            adPanel.IsCollapsed = true;
+        }
+        catch (Exception ex)
+        {
+            BridgeLog($"cinta: no se pudo colapsar {panelTitle}: {ex.Message}");
+        }
     }
 
     public Result OnStartup(UIControlledApplication application)
@@ -113,6 +138,10 @@ public class App : IExternalApplication
         };
 
         panel.AddItem(exportIfcBatchButtonData);
+
+        // Exportar se usa poco y ocupa mucho: queda colapsado, un solo botón que despliega
+        // los íconos en fila (como cuando Revit colapsa un panel por falta de espacio).
+        CollapsePanel(tabName, "Exportar", "exportar_pdf_32.png");
 
         // --- Panel Detalles: recuperar textos desde DXF ---
         RibbonPanel detallesPanel = application.CreateRibbonPanel(tabName, "Detalles");

@@ -26,6 +26,8 @@
     <!-- Paquetes de Nice3point con los contratos de la Revit API para no tener que instalar el SDK completo -->
     <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="$(RevitVersion).0.*" ExcludeAssets="runtime" />
     <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="$(RevitVersion).0.*" ExcludeAssets="runtime" />
+    <!-- AdWindows: la cinta de Revit por dentro; se usa para dejar paneles colapsados (desplegables) -->
+    <PackageReference Include="Nice3point.Revit.Api.AdWindows" Version="$(RevitVersion).0.*" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>
