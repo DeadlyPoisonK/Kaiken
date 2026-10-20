@@ -400,8 +400,8 @@ public class App : IExternalApplication
             ClashDisplay.Forget(e.Document);
         };
 
-        // --- Panel Navegar: buscar rooms (incluidas las de vínculos) ---
-        RibbonPanel navegarPanel = application.CreateRibbonPanel(tabName, "Navegar");
+        // --- Panel Rooms: buscar rooms y etiquetar las de vínculos ---
+        RibbonPanel navegarPanel = application.CreateRibbonPanel(tabName, "Rooms");
 
         var findRoomButton = new PushButtonData(
             "FindRoomCommand",
@@ -415,6 +415,19 @@ public class App : IExternalApplication
                       "Te lleva a una planta donde se ve la room (primero las que tienen su etiqueta) o la destaca en la vista actual: hace zoom y la deja seleccionada. No modifica el modelo.",
         };
         navegarPanel.AddItem(findRoomButton);
+
+        var linkedRoomTagsButton = new PushButtonData(
+            "LinkedRoomTagsCommand",
+            "Etiquetar\nRooms Vínculo",
+            assemblyPath,
+            "Kaiken.LinkedRoomTagsCommand"
+        )
+        {
+            LargeImage = LoadIcon("etiquetar_rooms_32.png"),
+            ToolTip = "Etiqueta en la planta activa las habitaciones de un vínculo que están en su nivel y aún no tienen etiqueta, con el tipo de etiqueta que elijas " +
+                      "(opcionalmente solo las que caen en la región de recorte). Sirve donde Tag All Not Tagged no encuentra las habitaciones del vínculo. Un Ctrl+Z deshace todo.",
+        };
+        navegarPanel.AddItem(linkedRoomTagsButton);
 
         // --- Panel Revisiones: Modificar Revisión / Cambiar Fecha y REV ---
         RibbonPanel revisionesPanel = application.CreateRibbonPanel(tabName, "Revisiones");

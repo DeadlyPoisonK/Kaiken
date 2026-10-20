@@ -1,5 +1,9 @@
 # Cambios
 
+## Próxima versión
+
+- Botón **Etiquetar Rooms Vínculo** (panel Rooms, antes Navegar): en la planta activa etiqueta las habitaciones de un vínculo que están en su nivel y aún no tienen etiqueta, con el tipo de etiqueta elegido (opcionalmente solo las que caen en la región de recorte). Sirve donde **Tag All Not Tagged** no encuentra las habitaciones del vínculo y termina sin crear nada (visto en Revit 2025.4 con el vínculo de Interiores). Un Ctrl+Z deshace todo.
+
 ## 1.14.0 (2026-10-01)
 
 - **Unir**: nueva opción **Cualquier °**. Elige el ángulo de los dos codos según el desnivel y la distancia entre los extremos: el salto llena el espacio entre ambos, sin pasar del mayor ángulo con que la diagonal alcanza para los dos codos ni bajar de 15° (salvo que no quepa otro). Si los extremos se traslapan, usa el mayor ángulo que cabe. Resuelve los casos (p.ej. escalerillas) donde 45° no cabía por espacio.
