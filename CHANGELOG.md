@@ -1,8 +1,18 @@
 # Cambios
 
-## Próxima versión
+## 1.15.0 (2026-10-20)
 
+- Panel **Capas** (botón en el panel Vistas): capas tipo Photoshop en la vista activa, en un panel acoplable. Cada capa es un filtro de vista; las etiquetas, textos y cotas se guardan por elemento. Ojo para mostrar/ocultar (Alt+clic: solo esta capa), color, semitono, crear desde la selección, asignar, quitar, seleccionar, renombrar (F2) y borrar (Supr). Una capa **bloqueada** no se puede seleccionar; el bloqueo es personal y no modifica el modelo. Avisa si la plantilla de vista controla los filtros y, con worksharing, omite lo que es de otro usuario y dice de quién.
+- Botón **Interferencias** (panel Coordinación): revisa escalerillas, ductos, tuberías o conduits contra categorías del modelo y de los vínculos, y muestra el resultado en una vista 3D propia por usuario (elementos con choque en naranjo, volumen del choque en rojo). El resultado queda guardado en la vista y viaja con el central. Navegador para ir a cada choque, destacarlo, marcarlo resuelto y re-verificar todo tras corregir; **Limpiar** quita las marcas. Muestra cuánto tardó la revisión.
+- Botón **Alc** (panel MEP, alcantarillado): elegidas las bajantes y la troncal, arma por cada bajante la ruta bajante → codo → diagonal → codo → horizontal al 1 % → Te/Tap en la troncal. Prefiere codos de 45° y prueba otros ángulos si no caben.
 - Botón **Etiquetar Rooms Vínculo** (panel Rooms, antes Navegar): en la planta activa etiqueta las habitaciones de un vínculo que están en su nivel y aún no tienen etiqueta, con el tipo de etiqueta elegido (opcionalmente solo las que caen en la región de recorte). Sirve donde **Tag All Not Tagged** no encuentra las habitaciones del vínculo y termina sin crear nada (visto en Revit 2025.4 con el vínculo de Interiores). Un Ctrl+Z deshace todo.
+- Botón **Crear Dependientes** (panel Vistas): crea de una vez varias vistas dependientes de la vista principal, sin abrirlas, con nombres escritos, generados o copiados de otras vistas. Si un nombre ya existe, renombra la vista vieja, la elimina o la omite.
+- **Guardar Alineación / Alinear Viewports** (botón dividido en el panel Vistas): guarda en un .json, por sector, el scope box y la posición del viewport en el papel de las láminas marcadas, y lo aplica a las láminas de cualquier modelo según el sector de su nombre.
+- Panel **Ventanas**: **Guardar / Restaurar Vistas** guarda por modelo las vistas abiertas, su zoom, la activa y la posición de cada ventana (también las flotantes en otros monitores) y las vuelve a abrir igual.
+- **Conectar Rociadores**: si no hay tubería hacia donde mira el conector, busca al lado contrario (y lo avisa). Alinea el rociador en planta con el eje, une con codo cuando queda en el extremo del tramo y alarga ramales cortos. Los rociadores pegados a la tubería se corren en altura (hasta 10 cm) para calzar directo en el accesorio.
+- El panel **Exportar** queda colapsado en un solo botón desplegable.
+- El botón **Kaiken** (ícono de la marca) ahora muestra la versión, la configuración leída de `settings.json` y si el puente en vivo responde, y permite iniciarlo en esa sesión.
+- Para desarrollo: modo desarrollo (apagado por defecto) para probar builds sin reiniciar Revit, y operaciones del puente en vivo en el Editor de Familias.
 
 ## 1.14.0 (2026-10-01)
 
